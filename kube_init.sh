@@ -1,10 +1,11 @@
 #!/bin/bash
 
-#Default to 1 node or use first arg
-NODES=${1:-1}
+#Number of nodes in cluster
+NODES=2
 #Set cluster name
 CLUSTER=odm-k8s-gpu
 export CLUSTER=$CLUSTER
+export NODES=$NODES
 
 TEMPLATE=${CLUSTER}-template
 KEYPAIR=ASDC_ODM
@@ -203,22 +204,30 @@ echo ${NODE_VOL_IDS[@]}
 
 
 #Adding nodes to cluster via telnet interface
-CLUSTER_NODES='"(sleep 1; '
+CLUSTER_NODES='(sleep 1; '
 for (( n=1; n<=$NODES; n++ ))
 do
   NODE_NAME=nodeodm$n
   CLUSTER_NODES+="echo 'NODE ADD $NODE_NAME 3000'; sleep 1;"
 done
-CLUSTER_NODES+=') | telnet localhost 8080"'
+CLUSTER_NODES+=') | telnet localhost 8080'
 
-#Exec command to set cluster nodes
-echo $CLUSTER_NODES
-kubectl exec clusterodm -- bash -c $CLUSTER_NODES
-kubectl exec clusterodm -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080"
 
 #Launch clusterodm instance
 kubectl apply -f clusterodm.yaml
 kubectl apply -f clusterodm-service.yaml
+
+#Wait until clusterodm running
+until kubectl get pods --field-selector status.phase=Running | grep clusterodm
+do
+  echo "Waiting for clusterodm"
+  sleep 0.5
+done
+
+#Exec command to set cluster nodes
+echo $CLUSTER_NODES
+kubectl exec clusterodm -- bash -c "$CLUSTER_NODES"
+kubectl exec clusterodm -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080"
 
 #TODO:
 #Fix the loadbalancer service rather than using NodePort
@@ -230,5 +239,6 @@ kubectl get svc
 #For debugging... log in to pod shell
 #kubectl exec --stdin --tty webapp-worker -- /bin/bash
 
-
+#To specify alternate container in multi-container pod
+#kubectl exec --stdin --tty webapp-worker -c worker -- /bin/bash
 
