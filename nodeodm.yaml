@@ -1,0 +1,25 @@
+#Deployment of nodeodm
+#NOTE: can't use replicas to required deployment cluster size
+# as cinder volumes can not be shared and unique id must be specified
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ${NODE_NAME}
+  labels:
+    app: ${NODE_NAME}
+spec:
+  containers:
+    - name: nodeodm
+      image: opendronemap/nodeodm
+      volumeMounts:
+        - name: odm-volume
+          mountPath: "/mnt/dronedrive"
+  volumes:
+    # This OpenStack volume must already exist.
+    - name: odm-volume
+      cinder:
+        # Enter the volume ID below
+        #openstack volume show NodeODM2 -f value -c id
+        volumeID: ${NODE_VOLUME_ID}
+        fsType: ext4
+        

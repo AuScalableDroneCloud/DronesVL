@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: Pod
+#Combined webapp and worker into a single pod to share a volume
+#based on kompose outputs:
+# - webapp-deployment.yaml & worker-deployment.yaml
+metadata:
+  annotations:
+    kompose.cmd: ./kompose convert
+    kompose.version: 1.21.0 (992df58d8)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: webapp
+  name: webapp-worker
+spec:
+  restartPolicy: Always
+  serviceAccountName: ""
+
+  #Volume will be shared by both containers
+  volumes:
+  - name: webapp-claim0
+    persistentVolumeClaim:
+      claimName: webapp-claim0
+
+
+  containers:
+  - name: webapp-container
+    command:
+    - /bin/bash
+    - -c
+    - chmod +x /webodm/*.sh && /bin/bash -c "/webodm/wait-for-postgres.sh db /webodm/wait-for-it.sh
+      -t 0 broker:6379 -- /webodm/start.sh"
+    environment:
+    - name: WO_BROKER
+      value: redis://broker
+    image: opendronemap/webodm_webapp
+    imagePullPolicy: ""
+    name: webapp
+    ports:
+    - containerPort: 8000
+    resources: {}
+    volumeMounts:
+    - mountPath: /webodm/app/media
+      name: webapp-claim0
+
+  - name: worker
+    command:
+    - /bin/bash
+    - -c
+    - /webodm/wait-for-postgres.sh db /webodm/wait-for-it.sh -t 0 broker:6379
+      -- /webodm/wait-for-it.sh -t 0 webapp:8000 -- /webodm/worker.sh start
+    environment:
+    - name: WO_BROKER
+      value: redis://broker
+    image: opendronemap/webodm_webapp
+    imagePullPolicy: ""
+    name: worker
+    resources: {}
+    volumeMounts:
+    - mountPath: /webodm/app/media
+      name: webapp-claim0
+

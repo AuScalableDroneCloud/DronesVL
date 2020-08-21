@@ -1,0 +1,12 @@
+#Deployment of clusterodm
+apiVersion: v1
+kind: Pod
+metadata:
+  name: clusterodm
+  labels:
+    app: clusterodm
+spec:
+  containers:
+    - name: clusterodm
+      image: opendronemap/clusterodm
+        
