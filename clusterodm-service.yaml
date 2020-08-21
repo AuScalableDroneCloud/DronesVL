@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  name: clusterodm
+spec:
+  ports:
+  - port: 3000
+    targetPort: 3000
+  selector:
+    app: clusterodm
+status:
+  loadBalancer: {}

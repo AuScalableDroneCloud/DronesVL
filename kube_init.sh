@@ -136,16 +136,6 @@ function create_volume()
   VOL_ID=`openstack volume show $2 -f value -c id`
 }
 
-#NodeODM launcher function
-function nodeodm_pod()
-{
-  #Deploy NodeODM pod using passed name and volume ID
-  export NODE_NAME=$1
-  export NODE_VOLUME_ID=$2
-  cat nodeodm.yaml | envsubst > nodeodm_temp.yaml
-  kubectl apply -f nodeodm_temp.yaml
-}
-
 #Create persistent cinder volumes
 if ! openstack volume show web-storage;
 then
@@ -189,10 +179,18 @@ do
   then
     create_volume $NODE_VOLSIZE $VOL
     NODE_VOL_IDS+=( $VOL_ID )
-
-    #Deploy the NodeODM pod
-    nodeodm_pod nodeodm$n $VOL_ID
+  else
+    VOL_ID=`openstack volume show $VOL -c id -f value`
+    NODE_VOL_IDS+=( $VOL_ID )
   fi
+
+  #Deploy NodeODM pod using name and volume ID
+  export NODE_NAME=nodeodm$n
+  export NODE_VOLUME_ID=$VOL_ID
+  cat templates/nodeodm.yaml | envsubst > nodeodm.yaml
+  cat templates/nodeodm-service.yaml | envsubst > nodeodm-service.yaml
+  kubectl apply -f nodeodm.yaml
+  kubectl apply -f nodeodm-service.yaml
 done
 export NODE_VOL_IDS=$NODE_VOL_IDS
 
@@ -203,11 +201,26 @@ echo ${NODE_VOL_IDS[@]}
 #  echo $value
 #done
 
+
+#Adding nodes to cluster via telnet interface
+CLUSTER_NODES='"(sleep 1; '
+for (( n=1; n<=$NODES; n++ ))
+do
+  NODE_NAME=nodeodm$n
+  CLUSTER_NODES+="echo 'NODE ADD $NODE_NAME 3000'; sleep 1;"
+done
+CLUSTER_NODES+=') | telnet localhost 8080"'
+
+#Exec command to set cluster nodes
+echo $CLUSTER_NODES
+kubectl exec clusterodm -- bash -c $CLUSTER_NODES
+kubectl exec clusterodm -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080"
+
 #Launch clusterodm instance
 kubectl apply -f clusterodm.yaml
+kubectl apply -f clusterodm-service.yaml
 
 #TODO:
-#Link the NodeODM nodes to the ClusterODM instance
 #Fix the loadbalancer service rather than using NodePort
 #Better shared storage, nfs or similar
 
