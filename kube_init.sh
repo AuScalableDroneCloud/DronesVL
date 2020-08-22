@@ -7,7 +7,6 @@
 # - Launch a WebODM instance, a NodeODM instance per cluster node and other required services to connect them
 
 #TODO:
-# - Remove redundant export of vars
 # - Better shared storage pool between nodes, nfs or similar
 # - HTTPS and certificate handling, requires domain name
 
@@ -15,8 +14,6 @@
 NODES=2
 #Set cluster name
 CLUSTER=odm-k8s-gpu
-export CLUSTER=$CLUSTER
-export NODES=$NODES
 
 TEMPLATE=${CLUSTER}-template
 KEYPAIR=ASDC_ODM
@@ -25,9 +22,9 @@ NETWORK=monash
 MASTER_FLAVOUR=m3.small
 FLAVOUR=mon.c22r60.gpu-p4
 
-NODE_VOLSIZE=100
-WEB_VOLSIZE=200
-DB_VOLSIZE=1
+export NODE_VOLSIZE=100
+export DB_VOLUME_SIZE=1
+export WEBAPP_VOLUME_SIZE=200
 
 if [[ "$0" = "$BASH_SOURCE" ]]; then
     echo "Please source this script. Do not execute."
@@ -120,9 +117,9 @@ done
 #Once the cluster is running, get params and the config for kubectl
 echo "Attempting to configure cluster";
 #Finally setup the environment and export kubernetes config
-export STACK_ID=`openstack coe cluster show $CLUSTER -f value -c stack_id`
-export FLOATING_IP=`openstack stack output show $STACK_ID api_address -c output_value -f value`
-export PORT_ID=`openstack floating ip show $FLOATING_IP -c port_id -f value`
+STACK_ID=`openstack coe cluster show $CLUSTER -f value -c stack_id`
+FLOATING_IP=`openstack stack output show $STACK_ID api_address -c output_value -f value`
+PORT_ID=`openstack floating ip show $FLOATING_IP -c port_id -f value`
 
 #Open the port if not already done
 SG_ID=`openstack security group show kubernetes-api -c id -f value`
@@ -140,7 +137,7 @@ openstack coe cluster config $CLUSTER
 export KUBECONFIG=`pwd`/config
 
 #Add cwd to path so kubectl can be run without dir
-export PATH=$PATH:`pwd`
+PATH=$PATH:`pwd`
 
 kubectl get all --all-namespaces
 #kubectl get nodes
@@ -159,7 +156,7 @@ function create_volume()
 if ! openstack volume show web-storage;
 then
   #Create volume for server/webapp
-  create_volume $WEB_VOLSIZE web-storage
+  create_volume $WEBAPP_VOLUME_SIZE web-storage
   export WEB_VOLUME_ID=$VOL_ID
 else
   export WEB_VOLUME_ID=`openstack volume show web-storage -c id -f value`
@@ -168,15 +165,13 @@ fi
 if ! openstack volume show db-storage;
 then
   #Create volumes for db
-  create_volume $DB_VOLSIZE db-storage
+  create_volume $DB_VOLUME_SIZE db-storage
   export DB_VOLUME_ID=$VOL_ID
 else
   export DB_VOLUME_ID=`openstack volume show db-storage -c id -f value`
 fi
 
 #Apply the storage IDs to the persistent volumes and volume sizes to volumes/claims
-export DB_VOLUME_SIZE=$DB_VOLSIZE
-export WEBAPP_VOLUME_SIZE=$WEB_VOLSIZE
 cat templates/webapp-persistentvolume.yaml | envsubst > webapp-persistentvolume.yaml
 cat templates/dbdata-persistentvolume.yaml | envsubst > dbdata-persistentvolume.yaml
 cat templates/webapp-persistentvolumeclaim.yaml | envsubst > webapp-persistentvolumeclaim.yaml
@@ -215,7 +210,6 @@ do
   kubectl apply -f nodeodm.yaml
   kubectl apply -f nodeodm-service.yaml
 done
-export NODE_VOL_IDS=$NODE_VOL_IDS
 
 echo ${NODE_VOL_IDS[@]}
 # Iterate the loop to read and print each array element
