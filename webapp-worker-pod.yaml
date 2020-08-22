@@ -21,8 +21,8 @@ spec:
     persistentVolumeClaim:
       claimName: webapp-claim0
 
-
   containers:
+  #WebODM app
   - name: webapp-container
     command:
     - /bin/bash
@@ -42,12 +42,15 @@ spec:
     - mountPath: /webodm/app/media
       name: webapp-claim0
 
+  #WebODM worker
   - name: worker
     command:
     - /bin/bash
     - -c
     - /webodm/wait-for-postgres.sh db /webodm/wait-for-it.sh -t 0 broker:6379
-      -- /webodm/wait-for-it.sh -t 0 webapp:8000 -- /webodm/worker.sh start
+      -- /webodm/wait-for-it.sh -t 0 localhost:8000 -- /webodm/worker.sh start
+      #When using worker in same pod as webapp, need to use localhost:8000 above
+      #-- /webodm/wait-for-it.sh -t 0 webapp:8000 -- /webodm/worker.sh start
     env:
     - name: WO_BROKER
       value: redis://broker
