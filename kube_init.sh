@@ -186,9 +186,13 @@ cat templates/dbdata-persistentvolumeclaim.yaml | envsubst > dbdata-persistentvo
 #Deploy the server WebODM instance
 kubectl create -f dbdata-persistentvolume.yaml,webapp-persistentvolume.yaml,db-service.yaml,db-deployment.yaml,dbdata-persistentvolumeclaim.yaml,broker-deployment.yaml,webapp-worker-pod.yaml,webapp-persistentvolumeclaim.yaml,broker-service.yaml
 
-#Having issues with LoadBalancer service, in the meantime using this
+#Having issues with LoadBalancer service, in the meantime this worked
 #NodePort - uses the node's IP, with randomly generated port
-kubectl expose pod webapp-worker  --target-port=8000 --type=NodePort
+#kubectl expose pod webapp-worker  --target-port=8000 --type=NodePort
+
+#This now works! Issue was with opening port with openstack, port now magically open??
+#(replaces/duplicates webapp-service.yaml)
+kubectl expose pod webapp-worker --port=80 --target-port=8000 --name=webapp-service --type=LoadBalancer
 
 #Create volume for node(s)
 NODE_VOL_IDS=()
@@ -244,13 +248,24 @@ do
 done
 
 #Exec command to set cluster nodes
+#(TODO: a better way would be for each node to add itself to the cluster on spinning up)
 echo $CLUSTER_NODES
 kubectl exec clusterodm -- bash -c "$CLUSTER_NODES"
 kubectl exec clusterodm -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080"
 
-#TODO:
-#Fix the loadbalancer service rather than using NodePort
-#Better shared storage, nfs or similar
+#Wait for the load balancer to be provisioned
+until kubectl get service webapp-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+do
+  echo "Waiting for load balancer IP"
+  sleep 0.5
+done
+
+export EXTERNAL_IP=`kubectl get service webapp-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}'`
+#Used to open port if necessary... already be open now but may be from previous test attempts
+#PORT_ID=`openstack floating ip list --floating-ip-address $EXTERNAL_IP -c Port -f value`
+#openstack port show $PORT_ID -c security_group_ids -f value
+#openstack port set --security-group http $PORT_ID #This was failing
+echo "Access on http://$EXTERNAL_IP"
 
 kubectl get pods
 kubectl get svc
