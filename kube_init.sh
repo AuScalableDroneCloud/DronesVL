@@ -7,7 +7,6 @@
 # - Launch a WebODM instance, a NodeODM instance per cluster node and other required services to connect them
 
 #TODO:
-# - Fix issues: jobs get stuck on image resize - broken redis/celery service?
 # - Remove redundant export of vars
 # - Better shared storage pool between nodes, nfs or similar
 # - HTTPS and certificate handling, requires domain name
@@ -23,7 +22,7 @@ TEMPLATE=${CLUSTER}-template
 KEYPAIR=ASDC_ODM
 ZONE=monash-02
 NETWORK=monash
-MASTER_FLAVOUR=m3.large
+MASTER_FLAVOUR=m3.small
 FLAVOUR=mon.c22r60.gpu-p4
 
 NODE_VOLSIZE=100
@@ -66,7 +65,7 @@ fi
 if ! openstack coe cluster template show $TEMPLATE;
 then
   echo "Creating cluster template: $TEMPLATE"
-  openstack coe cluster template create $TEMPLATE --image fedora-atomic-latest --keypair $KEYPAIR --external-network $NETWORK --dns-nameserver 8.8.8.8 --flavor $FLAVOUR --master-flavor $MASTER_FLAVOUR --docker-volume-size 25 --docker-storage-driver overlay2 --network-driver flannel --coe kubernetes --volume-driver cinder --coe kubernetes --labels container_infra_prefix=docker.io/nectarmagnum/,cloud_provider_tag=v1.14.0,kube_tag=v1.14.6,master_lb_floating_ip_enabled=true,availability_zone=$ZONE
+  openstack coe cluster template create $TEMPLATE --image fedora-atomic-latest --keypair $KEYPAIR --external-network $NETWORK --dns-nameserver 8.8.8.8 --flavor $FLAVOUR --master-flavor $MASTER_FLAVOUR --docker-volume-size 25 --docker-storage-driver overlay2 --network-driver flannel --coe kubernetes --volume-driver cinder --coe kubernetes --labels container_infra_prefix=docker.io/nectarmagnum/,cloud_provider_tag=v1.14.0,kube_tag=v1.14.6,master_lb_floating_ip_enabled=false,availability_zone=$ZONE
 fi
 
 #List running stacks
@@ -254,13 +253,13 @@ kubectl exec clusterodm -- bash -c "$CLUSTER_NODES"
 kubectl exec clusterodm -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080"
 
 #Wait for the load balancer to be provisioned
-until kubectl get service webapp-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+while [ -z $EXTERNAL_IP ];
 do
   echo "Waiting for load balancer IP"
+  EXTERNAL_IP=`kubectl get service webapp-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}'`
   sleep 0.5
 done
 
-export EXTERNAL_IP=`kubectl get service webapp-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}'`
 #Used to open port if necessary... already be open now but may be from previous test attempts
 #PORT_ID=`openstack floating ip list --floating-ip-address $EXTERNAL_IP -c Port -f value`
 #openstack port show $PORT_ID -c security_group_ids -f value
