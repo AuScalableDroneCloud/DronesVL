@@ -1,5 +1,17 @@
 #!/bin/bash
 
+# OpenDroneMap on k8s for ASDC DronesVL
+# Owen Kaluza, Monash University, August 2020
+#
+# - Provision a kubernetes cluster using OpenStack cluter orchestration engine
+# - Launch a WebODM instance, a NodeODM instance per cluster node and other required services to connect them
+
+#TODO:
+# - Fix issues: jobs get stuck on image resize - broken redis/celery service?
+# - Remove redundant export of vars
+# - Better shared storage pool between nodes, nfs or similar
+# - HTTPS and certificate handling, requires domain name
+
 #Number of nodes in cluster
 NODES=2
 #Set cluster name
@@ -27,8 +39,15 @@ fi
 if [ -z ${OS_PROJECT_ID+x} ];
 then
   echo "OS_PROJECT_ID is unset";
-  echo "Please source your openstack credentials"
-  return 1
+  FILE=Monash-Drone-openrc.sh
+  if [ -f $FILE ]; then
+    echo "Using $FILE."
+    source Monash-Drone-openrc.sh
+  else
+    echo "File $FILE does not exist."
+    echo "Please source your openstack credentials"
+    return 1
+  fi
 else
   echo "OS_PROJECT_ID is set to '$OS_PROJECT_ID'";
 fi
