@@ -1,0 +1,106 @@
+apiVersion: v1
+kind: Pod
+#Combined webapp and worker into a single pod to share a volume
+#based on kompose outputs:
+# - webapp-deployment.yaml & worker-deployment.yaml
+metadata:
+  annotations:
+    kompose.cmd: ./kompose convert
+    kompose.version: 1.21.0 (992df58d8)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: webapp
+    run: webapp
+  name: webapp-worker
+spec:
+  restartPolicy: Always
+  serviceAccountName: ""
+
+  #Volume will be shared by both containers
+  volumes:
+  - name: webapp-claim0
+    persistentVolumeClaim:
+      claimName: webapp-claim0
+
+  containers:
+  #WebODM app
+  - name: webapp-container
+    #Added loop to wait for hostname to respond to ping, we need to wait for the service to come up and the load-balancer IP to be changed
+    #to allow SSL before running start.sh
+    command: ["/bin/bash", "-c"]
+    #install killall, curl and some debugging stuff
+    #pgrep is not installed and can't install psproc, but echo will return 0 so hack this
+    #need to hack nginx-ssl.conf.template
+    #Creates a self-signed cert and skips letsencrypt... for debugging
+    #NOTE: using --dry-run to avoid rate limits
+    args:
+      - chmod +x /webodm/*.sh;
+        apt-get update;
+        apt-get install -y psmisc curl vim nmap;
+        /webodm/wait-for-postgres.sh db /webodm/wait-for-it.sh -t 0 broker:6379 -- echo "SERVICES READY";
+        sed -e 's/:.WO_PORT//g' -i /webodm/nginx/nginx-ssl.conf.template;
+        sed -e 's/ssl on;//g' -i /webodm/nginx/nginx-ssl.conf.template;
+        sed -e 's/deferred/ssl deferred/g' -i /webodm/nginx/nginx-ssl.conf.template;
+        while ! timeout 0.2 ping -c 1 -n ${WEBAPP_HOST} &> /dev/null;
+          do printf '.';
+        done;
+        mkdir -p /webodm/nginx/ssl;
+        if [ ! -s "/webodm/nginx/ssl/cert.pem" ];
+        then openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes -keyout /webodm/nginx/ssl/key.pem -out /webodm/nginx/ssl/cert.pem -subj "/CN=${WEBAPP_HOST}";
+        fi;
+        /webodm/start.sh;
+        #
+        #/webodm/wait-for-postgres.sh db /webodm/wait-for-it.sh -t 0 broker:6379 -- /webodm/start.sh;
+        #sed -e '30,35d' -i /webodm/nginx/nginx-ssl.conf.template;
+        #sed -e 's/keep/keep --dry-run/g' -i /webodm/nginx/letsencrypt-autogen.sh;
+        #sed -e '52iopenssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes -keyout ssl/key.pem -out ssl/cert.pem -subj "/CN=${WEBAPP_HOST}"' -i /webodm/nginx/letsencrypt-autogen.sh;
+        #sed -e 's/pgrep/echo pgrep/g' -i /webodm/nginx/letsencrypt-autogen.sh;
+        #/webodm/nginx/letsencrypt-autogen.sh;
+    env:
+    - name: WO_BROKER
+      value: "redis://broker"
+    - name: WO_SSL
+      value: "YES"
+    - name: WO_SSL_KEY
+      value: "/webodm/nginx/ssl/key.pem"
+    - name: WO_SSL_CERT
+      value: "/webodm/nginx/ssl/cert.pem"
+    - name: WO_HOST
+      value: "${WEBAPP_HOST}"
+    - name: WO_PORT
+      value: "80"
+    - name: WO_SSL_INSECURE_PORT_REDIRECT
+      value: "443"
+    image: opendronemap/webodm_webapp
+    imagePullPolicy: ""
+    name: webapp
+    ports:
+    - name: 'http'
+      containerPort: 8080
+    - name: 'https'
+      containerPort: 8000
+    resources: {}
+    volumeMounts:
+    - mountPath: /webodm/app/media
+      name: webapp-claim0
+
+  #WebODM worker
+  - name: worker
+    command:
+    - /bin/bash
+    - -c
+    - /webodm/wait-for-postgres.sh db /webodm/wait-for-it.sh -t 0 broker:6379
+      -- /webodm/wait-for-it.sh -t 0 localhost:8000 -- /webodm/worker.sh start
+      #When using worker in same pod as webapp, need to use localhost:8000 above
+      #-- /webodm/wait-for-it.sh -t 0 webapp:8000 -- /webodm/worker.sh start
+    env:
+    - name: WO_BROKER
+      value: redis://broker
+    image: opendronemap/webodm_webapp
+    imagePullPolicy: ""
+    name: worker
+    resources: {}
+    volumeMounts:
+    - mountPath: /webodm/app/media
+      name: webapp-claim0
+

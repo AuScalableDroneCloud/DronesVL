@@ -1,23 +1,22 @@
 apiVersion: v1
 kind: Service
 metadata:
-  annotations:
-    kompose.cmd: ./kompose convert
-    kompose.version: 1.21.0 (992df58d8)
-  creationTimestamp: null
+  name: webapp-service
   labels:
-    io.kompose.service: webapp
-  name: webapp
+    run: webapp-service
+    io.kompose.service: webapp-service
 spec:
   ports:
-  - port: 80
+  - name: "http"
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  - name: "https"
+    port: 443
     targetPort: 8000
     protocol: TCP
-  #selector:
-  #  run: webapp
   type: LoadBalancer
-  #type: NodePort
   selector:
     io.kompose.service: webapp
-status:
-  loadBalancer: {}
+  #  run: webapp
+
