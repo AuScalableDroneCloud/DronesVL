@@ -71,7 +71,8 @@ spec:
       value: "80"
     - name: WO_SSL_INSECURE_PORT_REDIRECT
       value: "443"
-    image: opendronemap/webodm_webapp
+    #image: opendronemap/webodm_webapp
+    image: ghcr.io/auscalabledronecloud/asdc_webodm
     imagePullPolicy: ""
     name: webapp
     ports:
@@ -96,7 +97,8 @@ spec:
     env:
     - name: WO_BROKER
       value: redis://broker
-    image: opendronemap/webodm_webapp
+    #image: opendronemap/webodm_webapp
+    image: ghcr.io/auscalabledronecloud/asdc_webodm
     imagePullPolicy: ""
     name: worker
     resources: {}
