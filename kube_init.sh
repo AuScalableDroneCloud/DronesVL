@@ -396,9 +396,10 @@ then
     openstack floating ip delete $OLD_ID
   else
     echo "WARNING: Designated floating IP already assigned to this service!"
+    unset FIXED_IP #Skip re-assign
   fi
 else
-  echo "WARNING: No existing floating IP"
+  echo "WARNING: No existing floating IP assigned"
 fi
 
 if [ ! -z ${FIXED_IP} ];
@@ -434,20 +435,24 @@ echo --- Phase 4b : Configuration: SSL
 kubectl exec webapp-worker -c webapp -- nmap -sT -O localhost
 
 #Wait for the server to be reachable with self-signed certificate
+#(THIS CAN TAKE A WHILE)
 #while ! wget https://${WEBAPP_HOST} --no-check-certificate -O /dev/null;
 while ! timeout 5.0 wget https://${WEBAPP_HOST} --no-check-certificate -O /dev/null;
   do printf '*';
+  sleep 5;
 done;
 
 #Kill nginx
 kubectl exec webapp-worker -c webapp -- killall nginx
 
+#If domain already has certificate issued, copy to local dir as cert.pem & key.pem
+#If not, will attempt to generate with letsencrypt
 if [ ! -s "cert.pem" ] || [ ! -s "key.pem" ];
 then
   #Create cert
   kubectl exec webapp-worker -c webapp -- /bin/bash -c "WO_SSL_KEY='' /webodm/nginx/letsencrypt-autogen.sh"
 
-  #Copy locally so will not be lost
+  #Copy locally so will not be lost if pod deleted
   kubectl cp webapp-worker:/webodm/nginx/ssl/cert.pem cert.pem -c webapp
   kubectl cp webapp-worker:/webodm/nginx/ssl/key.pem key.pem -c webapp
 else
