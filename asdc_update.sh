@@ -36,7 +36,7 @@ then
   #Re-deploy the WebODM instance
   kubectl create -f webapp-worker-pod.yaml
 
-else if [ $1 = "ip" ];
+elif [ $1 = "ip" ];
 then
   #Need to clear port on our floating ip or it will be deleted with the cluster
   FLOATING_IP=$(openstack floating ip list --tags ${WEBAPP_HOST} -c 'Floating IP Address' -f value)
@@ -51,6 +51,7 @@ then
   then
     echo "WARNING: service still appears to be using floating ip, DO NOT DELETE"
   else
+    echo "Can now delete webapp-service"
     #kubectl delete service webapp-service
   fi
 
