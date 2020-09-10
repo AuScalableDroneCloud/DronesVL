@@ -1,7 +1,19 @@
-#!/bin/bash
+####################################################################################################
+# OpenDroneMap on k8s for ASDC DronesVL
+# Owen Kaluza, Monash University, August 2020
+#
+# - Shutdown kubernetes cluster on openstack
+# - Leaves persistent volumes in place
+####################################################################################################
 
-#Get settings
+#Load the settings, setup openstack and kubectl
 source settings.env
+
+if [ -z ${KUBECONFIG+x} ];
+then
+  echo "KUBECONFIG is unset, run : source kube_init.sh to init cluster";
+  exit
+fi
 
 #Need to clear port on our floating ip or it will be deleted with the cluster
 ./kube_freeip.sh
@@ -18,8 +30,12 @@ function delete_volume()
   fi
 }
 
+#Remove the config file
+rm config
+
 ###DON'T DELETE VOLUMES UNLESS STARTING FROM SCRATCH
 exit
+####################################################################################################
 
 #TODO: wait until DELETE_IN_PROGRESS over / cluster gone
 echo "Waiting"
@@ -36,3 +52,4 @@ done
 
 unset KUBECONFIG
 unset STACK_ID
+
