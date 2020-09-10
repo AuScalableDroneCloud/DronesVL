@@ -30,11 +30,8 @@ then
   #Delete the worker pod to force rebuild
   kubectl delete pod webapp-worker
 
-  #Apply variables (hostname) to webapp-worker
-  cat templates/webapp-worker-pod.yaml | envsubst > webapp-worker-pod.yaml
-
-  #Re-deploy the WebODM instance
-  kubectl create -f webapp-worker-pod.yaml
+  echo "webapp-worker deleted successfully, running asdc_run.sh to re-create and initialise the webapp pod..."
+  source asdc_run.sh
 
 elif [ $1 = "ip" ];
 then
