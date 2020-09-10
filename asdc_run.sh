@@ -383,7 +383,7 @@ else
 
     ping $WEBAPP_HOST -c 1
 
-    echo "NOTE: must clear port of this floating ip before deleting services - or will be destroyed... use: ./kube_freeip.sh"
+    echo "NOTE: must clear port of this floating ip before deleting services - or will be destroyed... use: ./asdc_update.sh ip"
 
     #Necessary?
     kubectl patch svc webapp-service -p "{\"spec\": {\"loadBalancerIP\": \"${FLOATING_IP}\"}}"

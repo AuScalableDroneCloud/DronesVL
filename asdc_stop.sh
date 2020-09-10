@@ -11,12 +11,12 @@ source settings.env
 
 if [ -z ${KUBECONFIG+x} ];
 then
-  echo "KUBECONFIG is unset, run : source kube_init.sh to init cluster";
+  echo "KUBECONFIG is unset, run : source asdc_run.sh to init cluster";
   exit
 fi
 
 #Need to clear port on our floating ip or it will be deleted with the cluster
-./kube_freeip.sh
+./asdc_update.sh ip
 
 #Delete the cluster
 openstack coe cluster delete $CLUSTER
