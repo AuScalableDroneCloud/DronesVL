@@ -71,6 +71,10 @@ spec:
       value: "80"
     - name: WO_SSL_INSECURE_PORT_REDIRECT
       value: "443"
+    - name: WO_AUTH0_KEY
+      value: ${WO_AUTH0_KEY}
+    - name: WO_AUTH0_SECRET
+      value: ${WO_AUTH0_SECRET}
     #image: opendronemap/webodm_webapp
     image: ghcr.io/auscalabledronecloud/asdc-webodm:latest
     imagePullPolicy: ""
