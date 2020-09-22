@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Pod
+#This pod runs webapp container in priviledged mode to allow volume resize
+metadata:
+  creationTimestamp: null
+  labels:
+    run: webapp-resize
+  name: webapp-resize
+spec:
+  restartPolicy: Never
+  backoffLimit: 0
+
+  #Volume to resize
+  volumes:
+  - name: webapp-claim0
+    persistentVolumeClaim:
+      claimName: webapp-claim0
+
+  containers:
+  #WebODM app
+  - name: webapp-container
+    securityContext: { privileged: true } #To allow resize2fs
+    command: ["/bin/bash", "-c"]
+    args:
+      - resize2fs /dev/vdd;
+    image: ghcr.io/auscalabledronecloud/asdc-webodm:latest
+    imagePullPolicy: ""
+    name: webapp
+    resources: {}
+    volumeMounts:
+    - mountPath: /webodm/app/media
+      name: webapp-claim0
+

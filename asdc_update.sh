@@ -33,6 +33,31 @@ then
   echo "webapp-worker deleted successfully, running asdc_run.sh to re-create and initialise the webapp pod..."
   source asdc_run.sh
 
+elif [ $1 = "web-storage-resize" ];
+then
+
+  #Resize the web-storage volume (experimental)
+  # first set the new volume size in settings.env and run 'source settings.env'
+  kubectl delete pod webapp-worker
+  kubectl delete pvc webapp-claim0
+  kubectl delete pv webapp-volume
+
+  openstack volume set --size ${WEBAPP_VOLUME_SIZE} web-storage
+
+  #Re-apply the volume sizes to volumes/claims
+  export WEB_VOLUME_ID=$(openstack volume show web-storage -c id -f value)
+  cat templates/webapp-persistentvolume.yaml | envsubst > webapp-persistentvolume.yaml
+  cat templates/webapp-persistentvolumeclaim.yaml | envsubst > webapp-persistentvolumeclaim.yaml
+
+  #Re-create with resizer pod
+  #(runs privileged and uses resize2fs to resize the ext4 fs)
+  kubectl create -f resize-webapp-volume.yaml,webapp-persistentvolume.yaml,webapp-persistentvolumeclaim.yaml
+
+  sleep 5
+
+  echo "running asdc_run.sh to re-create and initialise the webapp pod..."
+  source asdc_run.sh
+
 elif [ $1 = "ip" ];
 then
   #Need to clear port on our floating ip or it will be deleted with the cluster
