@@ -44,7 +44,7 @@ then
 
   #WARNING: if above fails, and this runs, ip will be destroyed, so check, or do this manually...
   EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-  if [ ${EXTERNAL_IP} = ${FLOATING_IP}];
+  if [ ${EXTERNAL_IP} = ${FLOATING_IP} ];
   then
     echo "WARNING: service still appears to be using floating ip, DO NOT DELETE"
   else

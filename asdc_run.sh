@@ -215,7 +215,7 @@ kubectl apply -f clusterodm-service.yaml
 until kubectl get pods --field-selector status.phase=Running | grep clusterodm
 do
   echo "Waiting for clusterodm"
-  sleep 0.5
+  sleep 2
 done
 
 #Get current list of running nodes
@@ -407,7 +407,8 @@ echo --- Phase 3b : Configuration: SSL
 #Is SSL up and working yet?
 if ! curl https://${WEBAPP_HOST};
 then
-  kubectl exec webapp-worker -c webapp -- nmap -sT -O localhost
+  #Checks listening ports, requires nmap to be installed
+  #kubectl exec webapp-worker -c webapp -- nmap -sT -O localhost
 
   #Wait for the server to be reachable with self-signed or provided certificate
   #(THIS CAN TAKE A WHILE)
