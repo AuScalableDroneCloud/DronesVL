@@ -22,7 +22,8 @@ spec:
     securityContext: { privileged: true } #To allow resize2fs
     command: ["/bin/bash", "-c"]
     args:
-      - resize2fs /dev/vdd;
+      - DEVICE=$(df "/webodm/app/media" | tail -1 | awk '{ print $1 }');
+        resize2fs ${DEVICE};
     image: ghcr.io/auscalabledronecloud/asdc-webodm:latest
     imagePullPolicy: ""
     name: webapp
