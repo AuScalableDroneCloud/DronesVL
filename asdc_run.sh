@@ -183,21 +183,37 @@ cat templates/webapp-worker-pod.yaml | envsubst > webapp-worker-pod.yaml
 #Deploy the server WebODM instance
 kubectl create -f dbdata-persistentvolume.yaml,webapp-persistentvolume.yaml,db-service.yaml,db-deployment.yaml,dbdata-persistentvolumeclaim.yaml,broker-deployment.yaml,webapp-worker-pod.yaml,webapp-persistentvolumeclaim.yaml,broker-service.yaml,webapp-service.yaml
 
-#Create volume for node(s)
+#Deploy processing nodes
+#$1 = id#, $2 = image, $3 = port
 NODE_VOL_IDS=()
-for (( n=1; n<=$NODES; n++ ))
-do
-  VOL=node$n-storage
+function deploy_node()
+{
+  VOL=node$1-storage
   create_volume $NODE_VOLSIZE $VOL
   NODE_VOL_IDS+=( $VOL_ID )
 
   #Deploy NodeODM pod using name and volume ID
-  export NODE_NAME=nodeodm$n
+  export NODE_NAME=node$n
   export NODE_VOLUME_ID=$VOL_ID
+  export NODE_PORT=$3
+  export NODE_IMAGE=$2
+  echo "Deploying $2 : $3 as $NODE_NAME"
   cat templates/nodeodm.yaml | envsubst > nodeodm.yaml
   cat templates/nodeodm-service.yaml | envsubst > nodeodm-service.yaml
   kubectl apply -f nodeodm.yaml
   kubectl apply -f nodeodm-service.yaml
+}
+
+#Deploy NodeODM nodes
+for (( n=1; n<=$NODE_ODM; n++ ))
+do
+  deploy_node $n opendronemap/nodeodm 3000
+done
+
+#Deploy any additional nodes (MicMac)
+for (( n=$NODE_ODM+1; n<=$NODE_ODM+$NODE_MICMAC; n++ ))
+do
+  deploy_node $n dronemapper/node-micmac 3000
 done
 
 echo ${NODE_VOL_IDS[@]}
@@ -223,9 +239,9 @@ CODM_LIST=$(kubectl exec clusterodm -- bash -c "(sleep 1; echo 'NODE LIST'; slee
 
 #Adding nodes to cluster via telnet interface - create the script
 CLUSTER_NODES='(sleep 1; '
-for (( n=1; n<=$NODES; n++ ))
+for (( n=1; n<=$NODE_ODM; n++ ))
 do
-  NODE_NAME=nodeodm$n
+  NODE_NAME=node$n
   if ! echo "$CODM_LIST" | grep "$NODE_NAME";
   then
     CLUSTER_NODES+="echo 'NODE ADD $NODE_NAME 3000'; sleep 1;"
@@ -234,7 +250,7 @@ done
 CLUSTER_NODES+=') | telnet localhost 8080'
 
 #If no nodes need adding, can skip this
-if echo "$CLUSTER_NODES" | grep "nodeodm";
+if echo "$CLUSTER_NODES" | grep "node";
 then
   #Exec command to set cluster nodes
   #(TODO: a better way would be for each node to add itself to the cluster on spinning up)

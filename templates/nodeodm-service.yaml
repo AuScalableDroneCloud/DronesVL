@@ -5,8 +5,8 @@ metadata:
   name: ${NODE_NAME}
 spec:
   ports:
-  - port: 3000
-    targetPort: 3000
+  - port: ${NODE_PORT}
+    targetPort: ${NODE_PORT}
   selector:
     app: ${NODE_NAME}
 status:

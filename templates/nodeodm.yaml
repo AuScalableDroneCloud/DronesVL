@@ -1,4 +1,4 @@
-#Deployment of nodeodm
+#Deployment of NodeODM / NodeMICMAC or other procesing nodes
 #NOTE: can't use replicas for deployment cluster size
 # as cinder volumes can not be shared and unique id must be specified
 apiVersion: v1
@@ -10,7 +10,7 @@ metadata:
 spec:
   containers:
     - name: nodeodm
-      image: opendronemap/nodeodm
+      image: ${NODE_IMAGE}
       volumeMounts:
         - name: odm-volume
           mountPath: "/var/www/data"
