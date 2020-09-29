@@ -7,16 +7,30 @@ metadata:
   name: ${NODE_NAME}
   labels:
     app: ${NODE_NAME}
+    type: ${NODE_TYPE}
 spec:
   containers:
     - name: nodeodm
       image: ${NODE_IMAGE}
+      args: ${NODE_ARGS}
       volumeMounts:
-        - name: odm-volume
+        - name: ${NODE_VOLUME_NAME}
           mountPath: "/var/www/data"
   volumes:
-    - name: odm-volume
+    - name: ${NODE_VOLUME_NAME}
       cinder:
         volumeID: ${NODE_VOLUME_ID}
         fsType: ext4
+
+  #Use anti-affinity to prevent similar instances running on same k8s node
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: "type"
+                operator: In
+                values:
+                - ${NODE_TYPE}
+          topologyKey: "kubernetes.io/hostname"
 

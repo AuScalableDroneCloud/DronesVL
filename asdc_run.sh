@@ -184,25 +184,33 @@ cat templates/webapp-worker-pod.yaml | envsubst > webapp-worker-pod.yaml
 kubectl create -f dbdata-persistentvolume.yaml,webapp-persistentvolume.yaml,db-service.yaml,db-deployment.yaml,dbdata-persistentvolumeclaim.yaml,broker-deployment.yaml,webapp-worker-pod.yaml,webapp-persistentvolumeclaim.yaml,broker-service.yaml,webapp-service.yaml
 
 #Deploy processing nodes
-#$1 = id#, $2 = image, $3 = port
 NODE_VOL_IDS=()
 function deploy_node()
 {
-  VOL=node$1-storage
-  create_volume $NODE_VOLSIZE $VOL
-  NODE_VOL_IDS+=( $VOL_ID )
-
   #Deploy NodeODM pod using name and volume ID
-  export NODE_NAME=node$n
-  export NODE_VOLUME_ID=$VOL_ID
+  #$1 = id#, $2 = image, $3 = port, $4 = optional args
+  export NODE_NAME=node$1
   export NODE_PORT=$3
   export NODE_IMAGE=$2
-  echo "Deploying $2 : $3 as $NODE_NAME"
-  cat templates/nodeodm.yaml | envsubst > nodeodm.yaml
-  cat templates/nodeodm-service.yaml | envsubst > nodeodm-service.yaml
-  kubectl apply -f nodeodm.yaml
-  kubectl apply -f nodeodm-service.yaml
+  export NODE_TYPE=$( echo $2 | cut -d / -f2 )
+  export NODE_VOLUME_NAME=node$1-storage
+  export NODE_ARGS=$4
+  if ! kubectl get pods | grep $NODE_NAME
+  then
+    create_volume $NODE_VOLSIZE $NODE_VOLUME_NAME
+    export NODE_VOLUME_ID=$VOL_ID
+    NODE_VOL_IDS+=( $VOL_ID )
+
+    echo "Deploying $2 : $3 as $NODE_NAME"
+    cat templates/nodeodm.yaml | envsubst > nodeodm.yaml
+    cat templates/nodeodm-service.yaml | envsubst > nodeodm-service.yaml
+    kubectl apply -f nodeodm.yaml
+    kubectl apply -f nodeodm-service.yaml
+  fi
 }
+
+#Deploy clusterODM on node0
+deploy_node 0 opendronemap/clusterodm 3000 '["--public-address", "http://node0:3000"]'
 
 #Deploy NodeODM nodes
 for (( n=1; n<=$NODE_ODM; n++ ))
@@ -223,19 +231,22 @@ echo ${NODE_VOL_IDS[@]}
 #  echo $value
 #done
 
-#Launch clusterodm instance
-kubectl apply -f clusterodm.yaml
-kubectl apply -f clusterodm-service.yaml
-
 #Wait until clusterodm running
-until kubectl get pods --field-selector status.phase=Running | grep clusterodm
+until kubectl get pods --field-selector status.phase=Running | grep node0
 do
   echo "Waiting for clusterodm"
   sleep 2
 done
 
+for (( n=0; n<=$NODE_ODM+$NODE_MICMAC; n++ ))
+do
+  #Fix the tmp path storage issue (writes to ./tmp in /var/www, need to use volume or fills ethemeral storage of docker image/node)
+  echo kubectl exec node$n -- bash -c "if ! [ -L /var/www/tmp ] ; then rmdir /var/www/tmp; mkdir /var/www/data/tmp; ln -s /var/www/data/tmp /var/www/tmp; fi"
+  kubectl exec node$n -- bash -c "if ! [ -L /var/www/tmp ] ; then rmdir /var/www/tmp; mkdir /var/www/data/tmp; ln -s /var/www/data/tmp /var/www/tmp; fi"
+done
+
 #Get current list of running nodes
-CODM_LIST=$(kubectl exec clusterodm -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080")
+CODM_LIST=$(kubectl exec node0 -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080")
 
 #Adding nodes to cluster via telnet interface - create the script
 CLUSTER_NODES='(sleep 1; '
@@ -255,8 +266,8 @@ then
   #Exec command to set cluster nodes
   #(TODO: a better way would be for each node to add itself to the cluster on spinning up)
   echo $CLUSTER_NODES
-  kubectl exec clusterodm -- bash -c "$CLUSTER_NODES"
-  kubectl exec clusterodm -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080"
+  kubectl exec node0 -- bash -c "$CLUSTER_NODES"
+  kubectl exec node0 -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080"
 fi
 
 #Wait for the load balancer to be provisioned
