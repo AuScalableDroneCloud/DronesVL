@@ -34,3 +34,8 @@ spec:
                 - ${NODE_TYPE}
           topologyKey: "kubernetes.io/hostname"
 
+  # Zombie repellent
+  # https://www.back2code.me/2020/02/zombie-processes-back-in-k8s/
+  # https://stackoverflow.com/questions/50803268/kubernetes-equivalent-of-docker-run-init
+  shareProcessNamespace: true
+
