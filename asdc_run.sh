@@ -231,19 +231,29 @@ echo ${NODE_VOL_IDS[@]}
 #  echo $value
 #done
 
-#Wait until clusterodm running
-until kubectl get pods --field-selector status.phase=Running | grep node0
-do
-  echo "Waiting for clusterodm"
-  sleep 2
-done
+function wait_for_pod()
+{
+  #Loop until pod is running
+  #$1 = pod name
+  until kubectl get pods --field-selector status.phase=Running | grep $1
+  do
+    echo "Waiting for pod to enter status=Running : $1"
+    sleep 2
+  done
+  echo "Pod is running : $1"
+}
 
 for (( n=0; n<=$NODE_ODM+$NODE_MICMAC; n++ ))
 do
+  #Wait until node running
+  wait_for_pod node$n
   #Fix the tmp path storage issue (writes to ./tmp in /var/www, need to use volume or fills ethemeral storage of docker image/node)
   echo kubectl exec node$n -- bash -c "if ! [ -L /var/www/tmp ] ; then rmdir /var/www/tmp; mkdir /var/www/data/tmp; ln -s /var/www/data/tmp /var/www/tmp; fi"
   kubectl exec node$n -- bash -c "if ! [ -L /var/www/tmp ] ; then rmdir /var/www/tmp; mkdir /var/www/data/tmp; ln -s /var/www/data/tmp /var/www/tmp; fi"
 done
+
+#Wait until clusterodm running
+wait_for_pod node0
 
 #Get current list of running nodes
 CODM_LIST=$(kubectl exec node0 -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080")
