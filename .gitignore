@@ -1,0 +1,15 @@
+/dbdata-persistentvolume.yaml
+/dbdata-persistentvolumeclaim.yaml
+/nodeodm-service.yaml
+/nodeodm.yaml
+/ssl/asdc_erc_monash_edu.key
+/ssl/asdc_erc_monash_edu.pem
+/webapp-persistentvolume.yaml
+/webapp-persistentvolumeclaim.yaml
+/webapp-worker-pod.yaml
+/Monash-Drone-openrc.sh
+/cert.pem
+/config
+/key.pem
+/kubectl
+/auth0.env
