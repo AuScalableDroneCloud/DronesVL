@@ -13,11 +13,25 @@
 #                       always use this before deleting webapp-service or shutting down cluster
 #                       (is called by asdc_stop.sh so don't need to run explicitly in this case)
 #
+# ./asdc_update.sh web-storage-resize - resize the webapp storage volume to value in settings.env
+#                       resizes the openstack cinder volume, then runs a pod that calls resize2fs
+#                       to expand the filesystem to match
+#
+# ./asdc_update.sh db-storage-resize - resize the database storage volume to value in settings.env
+#                       resizes the openstack cinder volume, then runs a pod that calls resize2fs
+#                       to expand the filesystem to match
+#
 # It is intended to add further options for other components
 ####################################################################################################
 
 #Load the settings, setup openstack and kubectl
 source settings.env
+
+if [ $# -eq 0 ]
+then
+  echo "No arguments supplied"
+  exit
+fi
 
 if [ -z ${KUBECONFIG+x} ];
 then
@@ -52,6 +66,31 @@ then
   #Re-create with resizer pod
   #(runs privileged and uses resize2fs to resize the ext4 fs)
   kubectl create -f resize-webapp-volume.yaml,webapp-persistentvolume.yaml,webapp-persistentvolumeclaim.yaml
+
+  sleep 5
+
+  echo "running asdc_run.sh to re-create and initialise the webapp pod..."
+  source asdc_run.sh
+
+elif [ $1 = "db-storage-resize" ];
+then
+
+  #Resize the db-storage volume (experimental)
+  # first set the new volume size in settings.env and run 'source settings.env'
+  kubectl delete deployment db
+  kubectl delete pvc dbdata
+  kubectl delete pv dbvolume
+
+  openstack volume set --size ${DB_VOLUME_SIZE} db-storage
+
+  #Re-apply the volume sizes to volumes/claims
+  export DB_VOLUME_ID=$(openstack volume show db-storage -c id -f value)
+  cat templates/dbdata-persistentvolume.yaml | envsubst > dbdata-persistentvolume.yaml
+  cat templates/dbdata-persistentvolumeclaim.yaml | envsubst > dbdata-persistentvolumeclaim.yaml
+
+  #Re-create with resizer pod
+  #(runs privileged and uses resize2fs to resize the ext4 fs)
+  kubectl create -f resize-dbvolume.yaml,dbdata-persistentvolume.yaml,dbdata-persistentvolumeclaim.yaml
 
   sleep 5
 

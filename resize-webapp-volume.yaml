@@ -8,7 +8,6 @@ metadata:
   name: webapp-resize
 spec:
   restartPolicy: Never
-  backoffLimit: 0
 
   #Volume to resize
   volumes:
