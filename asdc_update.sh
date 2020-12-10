@@ -106,14 +106,15 @@ then
 
   openstack floating ip list
 
+  #Ensure the floating-ip is no longer assigned to our fixed ip
   #WARNING: if above fails, and this runs, ip will be destroyed, so check, or do this manually...
-  EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-  if [ ${EXTERNAL_IP} = ${FLOATING_IP} ];
+  FIXED_IP=$(openstack floating ip list --floating-ip-address $FLOATING_IP -c 'Fixed IP Address' -f value)
+  if [ ${FIXED_IP} == "None" ];
   then
-    echo "WARNING: service still appears to be using floating ip, DO NOT DELETE"
-  else
-    echo "Can now delete webapp-service"
+    echo "Can now delete webapp-service, floating ip has been directed to: " ${FIXED_IP}
     #kubectl delete service webapp-service
+  else
+    echo "WARNING: a service still appears to be attached to floating ip, DO NOT DELETE " ${FIXED_IP}
   fi
 
 fi

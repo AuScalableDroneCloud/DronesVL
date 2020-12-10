@@ -281,11 +281,13 @@ then
 fi
 
 #Wait for the load balancer to be provisioned
+EXTERNAL_IP=
 while [ -z $EXTERNAL_IP ];
 do
   echo "Waiting for load balancer IP"
+  #EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.spec.loadBalancerIP}')
   EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-  sleep 0.5
+  sleep 3
 done
 
 #Used to open port if necessary... already open now but may be from previous test attempts
@@ -324,11 +326,13 @@ echo --- Phase 3a : Configuration: Floating IP
 WEBAPP_IP=$(getent hosts ${WEBAPP_HOST} | awk '{ print $1 }')
 echo $WEBAPP_HOST resolves to $WEBAPP_IP
 
+#Do we already have a floating-ip ready to use that our hostname points to?
+#(should always be the case except on first spin-up as we want to keep this)
 #FIP_ID=$(openstack floating ip list --floating-ip-address $WEBAPP_IP -c ID -f value)
 FIP_ID=$(openstack floating ip list --tags ${WEBAPP_HOST} -c 'ID' -f value)
 if [ -z ${FIP_ID} ];
 then
-  #Check if floating ip alreasy created and tagged for this hostname
+  #Check if floating ip already created and tagged for this hostname
   FP_ID=$(openstack floating ip list --tags ${WEBAPP_HOST} -c ID -f value)
   if [ -z ${FIP_ID} ];
   then
@@ -366,6 +370,7 @@ fi
 
 #Get assigned IP details
 EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+#EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.spec.loadBalancerIP}')
 echo "Service ingress IP is : $EXTERNAL_IP"
 
 #If webapp host resolves to this service load balancer IP, everything is good
@@ -378,7 +383,7 @@ else
   #FIP_PORT=$(openstack floating ip list --tags ${WEBAPP_HOST} -c Port -f value)
   #FIP_PORT=$(openstack floating ip list --floating-ip-address $WEBAPP_IP -c Port -f value)
 
-  echo New IP $FLOATING_IP
+  echo Using this IP: $FLOATING_IP
   echo ID $FIP_ID
   #echo Port $FIP_PORT
 
@@ -422,7 +427,7 @@ else
 
     echo "NOTE: must clear port of this floating ip before deleting services - or will be destroyed... use: ./asdc_update.sh ip"
 
-    #Necessary?
+    #Seems to work without writing this, but allows us to check the value on the service matches our floating IP
     kubectl patch svc webapp-service -p "{\"spec\": {\"loadBalancerIP\": \"${FLOATING_IP}\"}}"
 
   else
@@ -434,7 +439,7 @@ fi
 echo --- Phase 3b : Configuration: SSL
 ####################################################################################################
 
-#By default, webodm will attempt to setup SSL when enabled and no cert of key passed
+#By default, webodm will attempt to setup SSL when enabled and no cert or key passed
 #This does not seem to work through the loadbalancer, so initially we create a self signed cert
 #Then manually run letsencrypt-autogen.sh after up and running
 #TODO: handle renew when using letsencrypt/certbot?
