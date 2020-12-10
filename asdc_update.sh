@@ -112,7 +112,8 @@ then
   if [ ${FIXED_IP} == "None" ];
   then
     echo "Can now delete webapp-service, floating ip has been directed to: " ${FIXED_IP}
-    #kubectl delete service webapp-service
+    #Just delete it, as once the ip is disassociated it's easier to just re-create than patch the service again
+    kubectl delete service webapp-service
   else
     echo "WARNING: a service still appears to be attached to floating ip, DO NOT DELETE " ${FIXED_IP}
   fi

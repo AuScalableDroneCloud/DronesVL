@@ -88,13 +88,14 @@ then
   until cluster_check "CREATE_COMPLETE"
   do
     get_status
-    echo $STATUS
+    printf "$STATUS "
     if cluster_check "CREATE_FAILED"; then
       echo "Cluster create failed!"
       return 1
     fi
     sleep 2
   done
+  echo ""
 
   #Wait for the load balancer to be provisioned
   STACK_ID=$(openstack coe cluster show $CLUSTER -f value -c stack_id)
@@ -281,14 +282,16 @@ then
 fi
 
 #Wait for the load balancer to be provisioned
+echo "Waiting for load balancer IP"
 EXTERNAL_IP=
 while [ -z $EXTERNAL_IP ];
 do
-  echo "Waiting for load balancer IP"
+  printf '.';
   #EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.spec.loadBalancerIP}')
   EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
   sleep 3
 done
+echo ""
 
 #Used to open port if necessary... already open now but may be from previous test attempts
 #PORT_ID=$(openstack floating ip list --floating-ip-address $EXTERNAL_IP -c Port -f value)
@@ -458,6 +461,7 @@ then
     do printf '*';
     sleep 5;
   done;
+  echo ""
 
   #Kill nginx
   kubectl exec webapp-worker -c webapp -- killall nginx
