@@ -41,8 +41,13 @@ spec:
         sed -e 's/:.WO_PORT//g' -i /webodm/nginx/nginx-ssl.conf.template;
         sed -e 's/ssl on;//g' -i /webodm/nginx/nginx-ssl.conf.template;
         sed -e 's/deferred/ssl deferred/g' -i /webodm/nginx/nginx-ssl.conf.template;
-        while ! timeout 0.2 ping -c 1 -n ${WEBAPP_HOST} &> /dev/null;
-          do printf '.';
+        echo "Waiting for" ${WEBAPP_HOST};
+        while :;
+        do
+          printf '.';
+          timeout 5.0 curl -sL ${WEBAPP_HOST}:443 &> /dev/null;
+          RES=$?;
+          if [[ "$RES" != '124' ]]; then break; fi;
         done;
         mkdir -p /webodm/nginx/ssl;
         if [ ! -s "/webodm/nginx/ssl/cert.pem" ];
