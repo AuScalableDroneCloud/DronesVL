@@ -50,6 +50,9 @@ function cluster_launched()
   return 1
 }
 
+#Use our config file from openstack magnum for kubectl
+export KUBECONFIG=$(pwd)/config
+
 #If ./config exists, then skip cluster build, remove it to re-create
 if [ ! -s "config" ] || ! grep "${CLUSTER}" config;
 then
@@ -132,6 +135,12 @@ then
 
 else
   echo "./config exists for $CLUSTER, to force re-creation : rm ./config"
+  #If config exists but cluster doesn't, remove config and exit here...
+  if ! openstack coe cluster show $CLUSTER -f value -c status;
+  then
+    echo "Cluster doesn't exist, removing config, re-run to create"
+    return 1;
+  fi
 fi;
 
 #kubectl get all
