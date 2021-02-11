@@ -190,16 +190,18 @@ function deploy_node()
 {
   #Deploy NodeODM pod using name and volume ID
   #$1 = id#, $2 = image, $3 = port, $4 = optional args
-  export NODE_NAME=node$1
+  export NODE_NAME=$1
   export NODE_PORT=$3
   export NODE_IMAGE=$2
   export NODE_TYPE=$( echo $2 | cut -d / -f2 )
-  export NODE_VOLUME_NAME=node$1-storage
+  export NODE_VOLUME_NAME=$1-storage
   export NODE_ARGS=$4
   if ! kubectl get pods | grep $NODE_NAME
   then
+    echo ">>> NODE LAUNCH... " $NODE_NAME $NODE_PORT $NODE_IMAGE $NODE_TYPE $NODE_VOLUME_NAME $NODE_ARGS
     create_volume $NODE_VOLSIZE $NODE_VOLUME_NAME
     export NODE_VOLUME_ID=$VOL_ID
+    echo "create_volume $NODE_VOLSIZE $NODE_VOLUME_NAME ==> $VOL_ID"
     NODE_VOL_IDS+=( $VOL_ID )
 
     echo "Deploying $2 : $3 as $NODE_NAME"
@@ -210,19 +212,19 @@ function deploy_node()
   fi
 }
 
-#Deploy clusterODM on node0
-deploy_node 0 opendronemap/clusterodm 3000 '["--public-address", "http://node0:3000"]'
+#Deploy clusterODM
+deploy_node clusterodm opendronemap/clusterodm 3000 '["--public-address", "http://clusterodm:3000"]'
 
 #Deploy NodeODM nodes
 for (( n=1; n<=$NODE_ODM; n++ ))
 do
-  deploy_node $n opendronemap/nodeodm 3000
+  deploy_node nodeodm$n opendronemap/nodeodm 3000
 done
 
 #Deploy any additional nodes (MicMac)
 for (( n=$NODE_ODM+1; n<=$NODE_ODM+$NODE_MICMAC; n++ ))
 do
-  deploy_node $n dronemapper/node-micmac 3000
+  deploy_node nodemicmac$n dronemapper/node-micmac 3000
 done
 
 echo ${NODE_VOL_IDS[@]}
@@ -244,17 +246,17 @@ function wait_for_pod()
   echo "Pod is running : $1"
 }
 
-for (( n=0; n<=$NODE_ODM+$NODE_MICMAC; n++ ))
+for (( n=1; n<=$NODE_ODM; n++ ))
 do
   #Wait until node running
-  wait_for_pod node$n
+  wait_for_pod nodeodm$n
   #Fix the tmp path storage issue (writes to ./tmp in /var/www, need to use volume or fills ethemeral storage of docker image/node)
-  echo kubectl exec node$n -- bash -c "if ! [ -L /var/www/tmp ] ; then rmdir /var/www/tmp; mkdir /var/www/data/tmp; ln -s /var/www/data/tmp /var/www/tmp; fi"
-  kubectl exec node$n -- bash -c "if ! [ -L /var/www/tmp ] ; then rmdir /var/www/tmp; mkdir /var/www/data/tmp; ln -s /var/www/data/tmp /var/www/tmp; fi"
+  echo kubectl exec nodeodm$n -- bash -c "if ! [ -L /var/www/tmp ] ; then rmdir /var/www/tmp; mkdir /var/www/data/tmp; ln -s /var/www/data/tmp /var/www/tmp; fi"
+  kubectl exec nodeodm$n -- bash -c "if ! [ -L /var/www/tmp ] ; then rmdir /var/www/tmp; mkdir /var/www/data/tmp; ln -s /var/www/data/tmp /var/www/tmp; fi"
 done
 
 #Wait until clusterodm running
-wait_for_pod node0
+wait_for_pod clusterodm
 
 #Get current list of running nodes
 CODM_LIST=$(kubectl exec node0 -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080")
@@ -263,7 +265,7 @@ CODM_LIST=$(kubectl exec node0 -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;)
 CLUSTER_NODES='(sleep 1; '
 for (( n=1; n<=$NODE_ODM; n++ ))
 do
-  NODE_NAME=node$n
+  NODE_NAME=nodeodm$n
   if ! echo "$CODM_LIST" | grep "$NODE_NAME";
   then
     CLUSTER_NODES+="echo 'NODE ADD $NODE_NAME 3000'; sleep 1;"
@@ -289,7 +291,7 @@ do
   printf '.';
   #EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.spec.loadBalancerIP}')
   EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-  sleep 3
+  sleep 1
 done
 echo ""
 

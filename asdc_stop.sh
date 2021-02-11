@@ -47,9 +47,11 @@ delete_volume db-storage
 
 for (( n=1; n<=$NODES; n++ ))
 do
-  delete_volume node$n-storage
+  delete_volume nodeodm$n-storage
 done
 
+delete_volume clusterodm-storage
+delete_volume nodemicmac-storage
 unset KUBECONFIG
 unset STACK_ID
 
