@@ -74,11 +74,7 @@ then
 
   #Create the cluster, wait until complete
   get_status
-  if cluster_check "CREATE_FAILED"; then
-    echo "Cluster create failed!"
-    return 1
-  fi
-  if ! cluster_launched; then
+  if ! cluster_check "CREATE_FAILED" && ! cluster_launched; then
     #Create the cluster from default template
     openstack coe cluster create --cluster-template $TEMPLATE --keypair $KEYPAIR --master-count 1 --node-count $NODES $CLUSTER
     echo "Cluster create initiated..."
@@ -91,6 +87,9 @@ then
     printf "$STATUS "
     if cluster_check "CREATE_FAILED"; then
       echo "Cluster create failed!"
+      heat stack-list -n
+      echo "Use 'heat resource-list failedstackid'"
+      echo "Then 'heat resource-show failedstackid resid' for more info"
       return 1
     fi
     sleep 2
