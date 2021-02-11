@@ -171,6 +171,22 @@ fi;
 kubectl get nodes
 
 ####################################################################################################
+echo --- Phase 1b : NVidia GPU Setup
+####################################################################################################
+# Apply our GPU driver installer/plugin container via daemonset
+# this installs the nvidia drivers and device plugin in the node host os
+#https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/#deploying-nvidia-gpu-device-plugin
+
+#Fedora atomic 29
+#kubectl apply -f https://raw.githubusercontent.com/AuScalableDroneCloud/nvidia-driver-container/atomic/daemonsets/nvidia-gpu-device-plugin-fedatomic.yaml
+
+#Fedora coreos 32
+kubectl apply -f https://raw.githubusercontent.com/AuScalableDroneCloud/nvidia-driver-container/coreos/daemonsets/nvidia-gpu-device-plugin-fedatomic.yaml
+
+#Local copy
+#kubectl apply -f nvidia-driver-container/daemonsets/nvidia-gpu-device-plugin-fedatomic.yaml
+
+####################################################################################################
 echo --- Phase 2a : Deployment: Volumes and storage
 ####################################################################################################
 
