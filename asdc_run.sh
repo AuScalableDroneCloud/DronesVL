@@ -113,11 +113,13 @@ then
 
   #Wait for the load balancer to be provisioned
   STACK_ID=$(openstack coe cluster show $CLUSTER -f value -c stack_id)
-  FLOATING_IP=$(openstack stack output show $STACK_ID api_address -c output_value -f value)
-  while ! timeout 0.2 ping -c 1 -n ${FLOATING_IP} &> /dev/null;
+  K_FLOATING_IP=$(openstack stack output show $STACK_ID api_address -c output_value -f value)
+  #Ping no longer responding
+  #while ! timeout 0.2 ping -c 1 -n ${K_FLOATING_IP} &> /dev/null;
+  while ! timeout 0.2 nc -zv ${K_FLOATING_IP} 6443 &> /dev/null;
   do
-    echo "Waiting for master-lb to be assigned floating IP, current api_address = $FLOATING_IP"
-    FLOATING_IP=$(openstack stack output show $STACK_ID api_address -c output_value -f value)
+    echo "Waiting for master-lb to be assigned floating IP, current api_address = $K_FLOATING_IP"
+    K_FLOATING_IP=$(openstack stack output show $STACK_ID api_address -c output_value -f value)
     sleep 1
   done
 
@@ -126,8 +128,8 @@ then
   #Finally setup the environment and export kubernetes config
   : '
   STACK_ID=$(openstack coe cluster show $CLUSTER -f value -c stack_id)
-  FLOATING_IP=$(openstack stack output show $STACK_ID api_address -c output_value -f value)
-  PORT_ID=$(openstack floating ip show $FLOATING_IP -c port_id -f value)
+  K_FLOATING_IP=$(openstack stack output show $STACK_ID api_address -c output_value -f value)
+  PORT_ID=$(openstack floating ip show $K_FLOATING_IP -c port_id -f value)
 
   #Open the port if not already done
   SG_ID=$(openstack security group show kubernetes-api -c id -f value)
