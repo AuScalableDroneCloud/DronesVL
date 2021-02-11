@@ -58,18 +58,30 @@ if [ ! -s "config" ] || ! grep "${CLUSTER}" config;
 then
   echo "Kubernetes config for $CLUSTER not found, preparing to create cluster"
   #DEBUG - delete the existing template to apply changes / edits
-  #openstack coe cluster template delete $TEMPLATE;
+  openstack coe cluster template delete $TEMPLATE;
+
+  #Working labels for k8s 1.17.11 on fedora-coreos-32
+  LABELS=container_infra_prefix=registry.rc.nectar.org.au/nectarmagnum/,kube_tag=v1.17.11,master_lb_floating_ip_enabled=true,docker_volume_type=standard,availability_zone=$ZONE,cinder_csi_enabled=true
+
+  #Labels for older version, must use fedora-atomic-latest
+  #LABELS=container_infra_prefix=docker.io/nectarmagnum/,cloud_provider_tag=v1.14.0,kube_tag=v1.14.6,master_lb_floating_ip_enabled=true,availability_zone=$ZONE
 
   #Creating the template
+  echo "Using labels: $LABELS"
   if ! openstack coe cluster template show $TEMPLATE;
   then
     #See: https://docs.openstack.org/magnum/latest/user/
     echo "Creating cluster template: $TEMPLATE"
-    #Floating ip disabled, master-lb-enabled, master-lb-floating-ip enabled
-    openstack coe cluster template create $TEMPLATE --image fedora-atomic-latest --keypair $KEYPAIR --external-network $NETWORK --floating-ip-disabled --master-lb-enabled --dns-nameserver 8.8.8.8 --flavor $FLAVOUR --master-flavor $MASTER_FLAVOUR --docker-volume-size 25 --docker-storage-driver overlay2 --network-driver flannel --coe kubernetes --volume-driver cinder --coe kubernetes --labels container_infra_prefix=docker.io/nectarmagnum/,cloud_provider_tag=v1.14.0,kube_tag=v1.14.6,master_lb_floating_ip_enabled=true,availability_zone=$ZONE
 
-    #Floating ip enabled
-    #openstack coe cluster template create $TEMPLATE --image fedora-atomic-latest --keypair $KEYPAIR --external-network $NETWORK --dns-nameserver 8.8.8.8 --flavor $FLAVOUR --master-flavor $MASTER_FLAVOUR --docker-volume-size 25 --docker-storage-driver overlay2 --network-driver flannel --coe kubernetes --volume-driver cinder --coe kubernetes --labels container_infra_prefix=docker.io/nectarmagnum/,cloud_provider_tag=v1.14.0,kube_tag=v1.14.6,master_lb_floating_ip_enabled=false,availability_zone=$ZONE
+    #Tried calico for dns issues and slow image pulls, didn't resolve
+    #NWDRIVER="calico"
+    NWDRIVER="flannel"
+
+    #Floating ip disabled, master-lb-enabled, master-lb-floating-ip enabled
+    openstack coe cluster template create $TEMPLATE --image $IMAGE --keypair $KEYPAIR --external-network $NETWORK --floating-ip-disabled --master-lb-enabled --flavor $FLAVOUR --master-flavor $MASTER_FLAVOUR --docker-volume-size 25 --docker-storage-driver overlay2 --network-driver $NWDRIVER --coe kubernetes --volume-driver cinder --coe kubernetes --labels $LABELS
+
+    #Floating ip enabled (allows ssh into nodes but requires extra FIPs)
+    #openstack coe cluster template create $TEMPLATE --image $IMAGE --keypair $KEYPAIR --external-network $NETWORK --dns-nameserver 8.8.8.8 --flavor $FLAVOUR --master-flavor $MASTER_FLAVOUR --docker-volume-size 25 --docker-storage-driver overlay2 --network-driver flannel --coe kubernetes --volume-driver cinder --coe kubernetes --labels $LABELS
   fi
 
   #List running stacks
@@ -132,6 +144,15 @@ then
 
   #Create the config
   openstack coe cluster config $CLUSTER
+
+  # DNS fails on newer kubernetes with fedora-coreos-32 image, need to restart flannel pods...
+  # See: https://tutorials.rc.nectar.org.au/kubernetes/09-troubleshooting
+  #Flannel
+  kubectl -n kube-system delete pod -l app=flannel
+
+  #Calico - reset pods to try and fix network issues?
+  #kubectl get pods --all-namespaces -owide --show-labels
+  #kubectl -n kube-system delete pod -l k8s-app=calico-node
 
 else
   echo "./config exists for $CLUSTER, to force re-creation : rm ./config"
