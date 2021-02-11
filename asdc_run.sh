@@ -346,9 +346,11 @@ then
     #Getting network ID
     NET_ID=$(openstack network list --name=$NETWORK -c ID -f value)
     #Tag with the domain name to help with lookup
-    openstack floating ip create $NET_ID --tag $WEBAPP_HOST
+    openstack floating ip create $NET_ID --tag $WEBAPP_HOST --description $WEBAPP_HOST
+
     #Can set tag after if needed with
     #openstack floating ip set --tag='${WEBAPP_HOST}' $FP_ID
+    #openstack floating ip set --description '${WEBAPP_HOST}' $FP_ID
     FP_ID=$(openstack floating ip list --tags ${WEBAPP_HOST} -c ID -f value)
     FLOATING_IP=$(openstack floating ip list --tags ${WEBAPP_HOST} -c 'Floating IP Address' -f value)
     echo "Please set your DNS for $WEBAPP_HOST to point to $FLOATING_IP"
