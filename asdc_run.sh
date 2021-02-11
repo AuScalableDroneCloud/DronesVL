@@ -181,7 +181,7 @@ echo --- Phase 2b : Deployment: pods
 cat templates/webapp-worker-pod.yaml | envsubst > webapp-worker-pod.yaml
 
 #Deploy the server WebODM instance
-kubectl create -f dbdata-persistentvolume.yaml,webapp-persistentvolume.yaml,db-service.yaml,db-deployment.yaml,dbdata-persistentvolumeclaim.yaml,broker-deployment.yaml,webapp-worker-pod.yaml,webapp-persistentvolumeclaim.yaml,broker-service.yaml,webapp-service.yaml
+kubectl apply -f dbdata-persistentvolume.yaml,webapp-persistentvolume.yaml,db-service.yaml,db-deployment.yaml,dbdata-persistentvolumeclaim.yaml,broker-deployment.yaml,webapp-worker-pod.yaml,webapp-persistentvolumeclaim.yaml,broker-service.yaml,webapp-service.yaml
 
 #Deploy processing nodes
 NODE_VOL_IDS=()
@@ -300,7 +300,7 @@ echo ""
 #openstack port set --security-group http $PORT_ID #This was failing
 echo "Accessible on http://$EXTERNAL_IP"
 
-kubectl get pods
+kubectl get pods --all-namespaces -owide
 kubectl get svc
 
 #For debugging... log in to pod shell
