@@ -58,6 +58,7 @@ if [ ! -s "config" ] || ! grep "${CLUSTER}" config;
 then
   echo "Kubernetes config for $CLUSTER not found, preparing to create cluster"
   #DEBUG - delete the existing template to apply changes / edits
+  #NOTE: This just fails when the cluster is running, so it's ok to run without checking here
   openstack coe cluster template delete $TEMPLATE;
 
   #Working labels for k8s 1.17.11 on fedora-coreos-32
@@ -181,10 +182,14 @@ echo --- Phase 1b : NVidia GPU Setup
 #kubectl apply -f https://raw.githubusercontent.com/AuScalableDroneCloud/nvidia-driver-container/atomic/daemonsets/nvidia-gpu-device-plugin-fedatomic.yaml
 
 #Fedora coreos 32
-kubectl apply -f https://raw.githubusercontent.com/AuScalableDroneCloud/nvidia-driver-container/coreos/daemonsets/nvidia-gpu-device-plugin-fedatomic.yaml
+#kubectl apply -f https://raw.githubusercontent.com/AuScalableDroneCloud/nvidia-driver-container/coreos/daemonsets/nvidia-gpu-device-plugin-fedatomic.yaml
 
 #Local copy
 #kubectl apply -f nvidia-driver-container/daemonsets/nvidia-gpu-device-plugin-fedatomic.yaml
+
+#Using helm gpu-operator
+helm install gpu-operator --devel nvidia/gpu-operator --set driver.repository=ghcr.io/auscalabledronecloud,driver.version=460.32.03 --wait
+#helm delete gpu-operator
 
 ####################################################################################################
 echo --- Phase 2a : Deployment: Volumes and storage
