@@ -306,7 +306,7 @@ done
 wait_for_pod clusterodm
 
 #Get current list of running nodes
-CODM_LIST=$(kubectl exec node0 -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080")
+CODM_LIST=$(kubectl exec clusterodm -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080")
 
 #Adding nodes to cluster via telnet interface - create the script
 CLUSTER_NODES='(sleep 1; '
@@ -326,8 +326,8 @@ then
   #Exec command to set cluster nodes
   #(TODO: a better way would be for each node to add itself to the cluster on spinning up)
   echo $CLUSTER_NODES
-  kubectl exec node0 -- bash -c "$CLUSTER_NODES"
-  kubectl exec node0 -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080"
+  kubectl exec clusterodm -- bash -c "$CLUSTER_NODES"
+  kubectl exec clusterodm -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080"
 fi
 
 #Wait for the load balancer to be provisioned
