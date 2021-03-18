@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: jhubdbvolume
+  namespace: jhub
+spec:
+  capacity:
+    storage: ${JHUB_VOLUME_SIZE}Gi
+  accessModes:
+    - ReadWriteOnce
+  cinder: 
+    fsType: ext4 
+    volumeID: ${JHUB_VOLUME_ID}

@@ -220,9 +220,14 @@ export WEB_VOLUME_ID=$VOL_ID
 create_volume $DB_VOLUME_SIZE db-storage
 export DB_VOLUME_ID=$VOL_ID
 
+# Create volume for jupyterhub
+create_volume $JHUB_VOLUME_SIZE jhub-db
+export JHUB_VOLUME_ID=$VOL_ID
+
 #Apply the storage IDs to the persistent volumes and volume sizes to volumes/claims
 cat templates/webapp-persistentvolume.yaml | envsubst > webapp-persistentvolume.yaml
 cat templates/dbdata-persistentvolume.yaml | envsubst > dbdata-persistentvolume.yaml
+cat templates/jhubdb-persistentvolume.yaml | envsubst > jhubdb-persistentvolume.yaml
 cat templates/webapp-persistentvolumeclaim.yaml | envsubst > webapp-persistentvolumeclaim.yaml
 cat templates/dbdata-persistentvolumeclaim.yaml | envsubst > dbdata-persistentvolumeclaim.yaml
 
@@ -544,4 +549,3 @@ fi
 
 #Final URL
 echo "Done. Access on https://$WEBAPP_HOST"
-
