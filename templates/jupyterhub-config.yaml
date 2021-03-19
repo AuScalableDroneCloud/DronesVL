@@ -1,4 +1,12 @@
 proxy:
+  https:
+    enabled: true
+    hosts:
+      - jupyter.monash-drone.cloud.edu.au
+    letsencrypt:
+      contactEmail: "geoffrey.squire@data61.csiro.au"
+  service:
+    loadBalancerIP: 118.138.248.98
   secretToken: "28d2bd680a9d0c5e48277fe255a24b0944e5f2219e933cf782eec4165aeead48"
 
 hub:
@@ -6,4 +14,4 @@ hub:
     pvc:
       selector:
         matchLabels:
-          name: "jhubdbvolume"
+          asdcjhubvolume: "db"
