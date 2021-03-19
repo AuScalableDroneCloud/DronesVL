@@ -4,10 +4,10 @@ proxy:
     hosts:
       - ${JHUB_HOST}
     letsencrypt:
-      contactEmail: "geoffrey.squire@data61.csiro.au"
+      contactEmail: ${JHUB_ADMIN_USER}
   service:
     loadBalancerIP: 118.138.248.98
-  secretToken: "28d2bd680a9d0c5e48277fe255a24b0944e5f2219e933cf782eec4165aeead48"
+  secretToken: "${JHUB_SECRET_TOKEN}"
 
 hub:
   config:
@@ -21,7 +21,7 @@ hub:
       auth0_subdomain: ${WO_AUTH0_SUBDOMAIN}
     Authenticator:
       admin_users:
-        - ${JH_ADMIN_USER}
+        - ${JHUB_ADMIN_USER}
       auto_login: true
     JupyterHub:
       authenticator_class: auth0
