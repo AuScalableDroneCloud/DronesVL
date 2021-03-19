@@ -2,7 +2,7 @@ proxy:
   https:
     enabled: true
     hosts:
-      - jupyter.monash-drone.cloud.edu.au
+      - ${JHUB_HOST}
     letsencrypt:
       contactEmail: "geoffrey.squire@data61.csiro.au"
   service:
@@ -10,8 +10,28 @@ proxy:
   secretToken: "28d2bd680a9d0c5e48277fe255a24b0944e5f2219e933cf782eec4165aeead48"
 
 hub:
+  config:
+    Auth0OAuthenticator:
+      client_id: ${WO_AUTH0_KEY}
+      client_secret: ${WO_AUTH0_SECRET}
+      oauth_callback_url: https://${JHUB_HOST}/hub/oauth_callback
+      scope:
+        - openid
+        - email
+      auth0_subdomain: ${WO_AUTH0_SUBDOMAIN}
+    Authenticator:
+      admin_users:
+        - ${JH_ADMIN_USER}
+      auto_login: true
+    JupyterHub:
+      authenticator_class: auth0
   db:
     pvc:
       selector:
         matchLabels:
           asdcjhubvolume: "db"
+
+singleuser:
+  storage:
+    dynamic:
+      storageClass: csi-sc-cinderplugin
