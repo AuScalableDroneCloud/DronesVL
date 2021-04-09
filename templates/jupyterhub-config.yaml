@@ -35,3 +35,18 @@ singleuser:
   storage:
     dynamic:
       storageClass: csi-sc-cinderplugin
+    extraVolumes:
+      - name: shared-data-cephfs
+        cephfs:
+          monitors:
+            - 172.16.85.246:6789
+            - 172.16.85.247:6789
+            - 172.16.85.248:6789
+          path: /volumes/_nogroup/dc85a3b5-70c8-484c-976d-dd59a3316382
+          user: ${ASDC_SHARED_DATA_CEPHFS_USER}
+          secretRef:
+            name: shared-data-cephfs-secret
+          readOnly: false
+    extraVolumeMounts:
+      - name: shared-data-cephfs
+        mountPath: /home/shared

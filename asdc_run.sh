@@ -235,6 +235,9 @@ cat templates/dbdata-persistentvolumeclaim.yaml | envsubst > dbdata-persistentvo
 cat templates/storage-classes.yaml | envsubst > storage-classes.yaml
 kubectl apply -f storage-classes.yaml
 
+# Create the secret for accessing the cephfs shared data volume
+cat templates/shared-data-cephfs-secret.yaml | envsubst > shared-data-cephfs-secret.yaml
+
 ####################################################################################################
 echo --- Phase 2b : Deployment: pods
 ####################################################################################################
