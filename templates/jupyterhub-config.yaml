@@ -32,6 +32,7 @@ hub:
           asdcjhubvolume: "db"
 
 singleuser:
+  defaultUrl: "/lab"
   storage:
     dynamic:
       storageClass: csi-sc-cinderplugin
