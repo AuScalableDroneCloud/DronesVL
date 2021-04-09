@@ -30,24 +30,34 @@ hub:
       selector:
         matchLabels:
           asdcjhubvolume: "db"
+  extraConfig:
+    custom_auth: |
+      def asdc_auth_state_hook(spawner, auth_state):
+        spawner.environment = {
+          "ASDC_USER_REFRESH_TOKEN": auth_state.get("refresh_token"),
+          "ASDC_USER_ACCESS_TOKEN": auth_state.get("access_token"),
+          "ASDC_USER_ID_TOKEN": auth_state.get("id_token")
+        }
+
+      c.Auth0OAuthenticator.auth_state_hook = asdc_auth_state_hook
 
 singleuser:
   defaultUrl: "/lab"
   storage:
     dynamic:
       storageClass: csi-sc-cinderplugin
-    extraVolumes:
-      - name: shared-data-cephfs
-        cephfs:
-          monitors:
-            - 172.16.85.246:6789
-            - 172.16.85.247:6789
-            - 172.16.85.248:6789
-          path: /volumes/_nogroup/dc85a3b5-70c8-484c-976d-dd59a3316382
-          user: ${ASDC_SHARED_DATA_CEPHFS_USER}
-          secretRef:
-            name: shared-data-cephfs-secret
-          readOnly: false
-    extraVolumeMounts:
-      - name: shared-data-cephfs
-        mountPath: /home/shared
+    # extraVolumes:
+    #   - name: shared-data-cephfs
+    #     cephfs:
+    #       monitors:
+    #         - 172.16.85.246:6789
+    #         - 172.16.85.247:6789
+    #         - 172.16.85.248:6789
+    #       path: /volumes/_nogroup/dc85a3b5-70c8-484c-976d-dd59a3316382
+    #       user: ${ASDC_SHARED_DATA_CEPHFS_USER}
+    #       secretRef:
+    #         name: shared-data-cephfs-secret
+    #       readOnly: false
+    # extraVolumeMounts:
+    #   - name: shared-data-cephfs
+    #     mountPath: /home/shared
