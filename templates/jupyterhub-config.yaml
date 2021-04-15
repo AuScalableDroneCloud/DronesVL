@@ -23,6 +23,10 @@ hub:
       admin_users:
         - ${JHUB_ADMIN_USER}
       auto_login: true
+      enable_auth_state: true
+    CryptKeeper:
+      keys:
+        - ${JHUB_CRYPT_KEEPER_KEY1}
     JupyterHub:
       authenticator_class: auth0
   db:
@@ -38,8 +42,7 @@ hub:
           "ASDC_USER_ACCESS_TOKEN": auth_state.get("access_token"),
           "ASDC_USER_ID_TOKEN": auth_state.get("id_token")
         }
-
-      c.Auth0OAuthenticator.auth_state_hook = asdc_auth_state_hook
+      c.KubeSpawner.auth_state_hook = asdc_auth_state_hook
 
 singleuser:
   defaultUrl: "/lab"
