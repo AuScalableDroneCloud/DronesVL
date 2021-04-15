@@ -6,7 +6,7 @@ proxy:
     letsencrypt:
       contactEmail: ${JHUB_ADMIN_USER}
   service:
-    loadBalancerIP: 118.138.248.98
+    loadBalancerIP: ${JHUB_LOADBALANCER_IP}
   secretToken: "${JHUB_SECRET_TOKEN}"
 
 hub:
@@ -31,9 +31,7 @@ hub:
       authenticator_class: auth0
   db:
     pvc:
-      selector:
-        matchLabels:
-          asdcjhubvolume: "db"
+      storageClassName: csi-sc-cinderplugin
   extraConfig:
     custom_auth: |
       def asdc_auth_state_hook(spawner, auth_state):
