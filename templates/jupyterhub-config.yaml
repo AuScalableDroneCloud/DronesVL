@@ -1,0 +1,37 @@
+proxy:
+  https:
+    enabled: true
+    hosts:
+      - ${JHUB_HOST}
+    letsencrypt:
+      contactEmail: ${JHUB_ADMIN_USER}
+  service:
+    loadBalancerIP: 118.138.248.98
+  secretToken: "${JHUB_SECRET_TOKEN}"
+
+hub:
+  config:
+    Auth0OAuthenticator:
+      client_id: ${WO_AUTH0_KEY}
+      client_secret: ${WO_AUTH0_SECRET}
+      oauth_callback_url: https://${JHUB_HOST}/hub/oauth_callback
+      scope:
+        - openid
+        - email
+      auth0_subdomain: ${WO_AUTH0_SUBDOMAIN}
+    Authenticator:
+      admin_users:
+        - ${JHUB_ADMIN_USER}
+      auto_login: true
+    JupyterHub:
+      authenticator_class: auth0
+  db:
+    pvc:
+      selector:
+        matchLabels:
+          asdcjhubvolume: "db"
+
+singleuser:
+  storage:
+    dynamic:
+      storageClass: csi-sc-cinderplugin

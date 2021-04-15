@@ -13,3 +13,6 @@
 /key.pem
 /kubectl
 /auth0.env
+/jupyterhub-config.yaml
+/storage-classes.yaml
+/jhubdb-persistentvolume.yaml
