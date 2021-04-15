@@ -203,7 +203,7 @@ VOL_ID=''
 VOLS=$(openstack volume list -c Name -f value)
 function create_volume()
 {
-  if ! echo "$VOLS" | grep "$2";
+  if ! echo "$VOLS" | grep -x "$2";
   then
     #Create volume, args size in gb, label
     echo "Creating Volume '$2' of size $1 gb"
