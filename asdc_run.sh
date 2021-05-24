@@ -561,11 +561,11 @@ echo "Done. Access on https://$WEBAPP_HOST"
 # ####################################################################################################
 
 # Base64 encoding for k8s secrets
-export WO_AUTH0_KEY_BASE64=$(echo $WO_AUTH0_KEY | base64)
-export WO_AUTH0_SECRET_BASE64=$(echo $WO_AUTH0_SECRET | base64)
-export WO_AUTH0_SUBDOMAIN_BASE64=$(echo $WO_AUTH0_SUBDOMAIN | base64)
-export JHUB_SECRET_TOKEN_BASE64=$(echo $JHUB_SECRET_TOKEN | base64)
-export JHUB_CRYPT_KEEPER_KEY1_BASE64=$(echo $JHUB_CRYPT_KEEPER_KEY1 | base64)
+export WO_AUTH0_KEY_BASE64=$(echo $WO_AUTH0_KEY | base64 -w 0)
+export WO_AUTH0_SECRET_BASE64=$(echo $WO_AUTH0_SECRET | base64 -w 0)
+export WO_AUTH0_SUBDOMAIN_BASE64=$(echo $WO_AUTH0_SUBDOMAIN | base64 -w 0)
+export JHUB_SECRET_TOKEN_BASE64=$(echo $JHUB_SECRET_TOKEN | base64 -w 0)
+export JHUB_CRYPT_KEEPER_KEY1_BASE64=$(echo $JHUB_CRYPT_KEEPER_KEY1 | base64 -w 0)
 
 cat templates/jupyterhub-configmap.yaml | envsubst | kubectl apply -f -
 cat templates/jupyterhub-secret.yaml | envsubst | kubectl apply -f -
