@@ -227,7 +227,6 @@ export JHUB_VOLUME_ID=$VOL_ID
 #Apply the storage IDs to the persistent volumes and volume sizes to volumes/claims
 cat templates/webapp-persistentvolume.yaml | envsubst > webapp-persistentvolume.yaml
 cat templates/dbdata-persistentvolume.yaml | envsubst > dbdata-persistentvolume.yaml
-cat templates/jhubdb-persistentvolume.yaml | envsubst > jhubdb-persistentvolume.yaml
 cat templates/webapp-persistentvolumeclaim.yaml | envsubst > webapp-persistentvolumeclaim.yaml
 cat templates/dbdata-persistentvolumeclaim.yaml | envsubst > dbdata-persistentvolumeclaim.yaml
 
@@ -557,22 +556,16 @@ fi
 #Final URL
 echo "Done. Access on https://$WEBAPP_HOST"
 
-####################################################################################################
-echo --- Phase 4 : Apps: JupyterHub
-####################################################################################################
+# ####################################################################################################
+# echo --- Phase 4 : Apps: Prepare configmaps and secrets for flux
+# ####################################################################################################
 
-# Ensure the jupyterhub PVs exist
-# Don't replace old PV if we're updating an existing stack!
-# kubectl delete pv jhubdbvolume
-kubectl apply -f jhubdb-persistentvolume.yaml
+# Base64 encoding for k8s secrets
+export WO_AUTH0_KEY_BASE64=$(echo $WO_AUTH0_KEY | base64)
+export WO_AUTH0_SECRET_BASE64=$(echo $WO_AUTH0_SECRET | base64)
+export WO_AUTH0_SUBDOMAIN_BASE64=$(echo $WO_AUTH0_SUBDOMAIN | base64)
+export JHUB_SECRET_TOKEN_BASE64=$(echo $JHUB_SECRET_TOKEN | base64)
+export JHUB_CRYPT_KEEPER_KEY1_BASE64=$(echo $JHUB_CRYPT_KEEPER_KEY1 | base64)
 
-# Update helm with jupyterhub repo
-helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/
-helm repo update
-
-# Install the jupyterhub release
-cat templates/jupyterhub-config.yaml | envsubst > jupyterhub-config.yaml
-helm upgrade --cleanup-on-fail --install jhub jupyterhub/jupyterhub --namespace jhub --create-namespace --version=${JHUB_CHART_VERSION} --values jupyterhub-config.yaml
-
-kubectl -n jhub get pod
-kubectl -n jhub get svc
+cat templates/jupyterhub-configmap.yaml | envsubst | kubectl apply -f -
+cat templates/jupyterhub-secret.yaml | envsubst | kubectl apply -f -
