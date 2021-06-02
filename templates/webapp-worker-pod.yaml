@@ -84,6 +84,8 @@ spec:
       value: ${WO_AUTH0_KEY}
     - name: WO_AUTH0_SECRET
       value: ${WO_AUTH0_SECRET}
+    - name: WO_ENCRYPTION_KEY
+      value: ${WO_ENCRYPTION_KEY}
     #image: opendronemap/webodm_webapp
     image: ghcr.io/auscalabledronecloud/asdc-webodm:latest
     imagePullPolicy: ""
@@ -110,6 +112,8 @@ spec:
     env:
     - name: WO_BROKER
       value: redis://broker
+    - name: WO_ENCRYPTION_KEY
+      value: ${WO_ENCRYPTION_KEY}
     #image: opendronemap/webodm_webapp
     image: ghcr.io/auscalabledronecloud/asdc-webodm:latest
     imagePullPolicy: ""
