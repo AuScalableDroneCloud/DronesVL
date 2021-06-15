@@ -17,3 +17,4 @@
 /storage-classes.yaml
 /jhubdb-persistentvolume.yaml
 /shared-data-cephfs-secret.yaml
+.vscode/settings.json
