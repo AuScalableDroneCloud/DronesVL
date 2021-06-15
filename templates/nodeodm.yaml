@@ -17,9 +17,10 @@ spec:
         - name: ${NODE_VOLUME_NAME}
           mountPath: "/var/www/data"
       # https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/
-      #resources:
-      #  limits:
-      #    nvidia.com/gpu: 1 # requesting 1 GPU
+      resources:
+        limits:
+          nvidia.com/gpu: ${NODE_GPUS} # requesting GPUs
+
   volumes:
     - name: ${NODE_VOLUME_NAME}
       cinder:

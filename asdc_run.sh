@@ -252,13 +252,14 @@ NODE_VOL_IDS=()
 function deploy_node()
 {
   #Deploy NodeODM pod using name and volume ID
-  #$1 = id#, $2 = image, $3 = port, $4 = optional args
+  #$1 = id#, $2 = type, $3 = image, $4 = port, $5 = gpus, $6 = optional args
   export NODE_NAME=$1
-  export NODE_PORT=$3
-  export NODE_IMAGE=$2
-  export NODE_TYPE=$( echo $2 | cut -d / -f2 )
   export NODE_VOLUME_NAME=$1-storage
-  export NODE_ARGS=$4
+  export NODE_TYPE=$2
+  export NODE_IMAGE=$3
+  export NODE_PORT=$4
+  export NODE_GPUS=$5
+  export NODE_ARGS=$6
   if ! kubectl get pods | grep $NODE_NAME
   then
     echo ">>> NODE LAUNCH... " $NODE_NAME $NODE_PORT $NODE_IMAGE $NODE_TYPE $NODE_VOLUME_NAME $NODE_ARGS
@@ -267,7 +268,7 @@ function deploy_node()
     echo "create_volume $NODE_VOLSIZE $NODE_VOLUME_NAME ==> $VOL_ID"
     NODE_VOL_IDS+=( $VOL_ID )
 
-    echo "Deploying $2 : $3 as $NODE_NAME"
+    echo "Deploying $3 : $4 as $NODE_NAME"
     cat templates/nodeodm.yaml | envsubst > nodeodm.yaml
     cat templates/nodeodm-service.yaml | envsubst > nodeodm-service.yaml
     kubectl apply -f nodeodm.yaml
@@ -276,18 +277,28 @@ function deploy_node()
 }
 
 #Deploy clusterODM
-deploy_node clusterodm opendronemap/clusterodm 3000 '["--public-address", "http://clusterodm:3000"]'
+deploy_node clusterodm clusterodm opendronemap/clusterodm 3000 0 '["--public-address", "http://clusterodm:3000"]'
 
 #Deploy NodeODM nodes
 for (( n=1; n<=$NODE_ODM; n++ ))
 do
-  deploy_node nodeodm$n opendronemap/nodeodm 3000
+  #First $NODE_ODM_GPU nodes are configured to use gpu
+  if [ "$n" -le "$NODE_ODM_GPU" ]; then 
+    #For GPU Nodes use gpu nodeodm image and set NODE_GPUS > 0
+    #(Note: we had to build our own image as public opendronemap/nodeodm:gpu doesn't seem to exist yet)
+    #https://github.com/OpenDroneMap/NodeODM#using-gpu-acceleration-for-sift-processing-inside-nodeodm
+    echo "Requesting CPU+GPU node"
+    deploy_node nodeodm$n nodeodm ghcr.io/auscalabledronecloud/asdc-nodeodm-gpu 3000 1
+  else
+    echo "Requesting CPU only node"
+    deploy_node nodeodm$n nodeodm ghcr.io/auscalabledronecloud/asdc-nodeodm 3000 0
+  fi
 done
 
 #Deploy any additional nodes (MicMac)
 for (( n=$NODE_ODM+1; n<=$NODE_ODM+$NODE_MICMAC; n++ ))
 do
-  deploy_node nodemicmac$n dronemapper/node-micmac 3000
+  deploy_node nodemicmac$n nodemicmac dronemapper/node-micmac 3000 0
 done
 
 echo ${NODE_VOL_IDS[@]}

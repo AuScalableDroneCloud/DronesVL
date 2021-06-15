@@ -62,6 +62,8 @@ spec:
         #sed -e 's/pgrep/echo pgrep/g' -i /webodm/nginx/letsencrypt-autogen.sh;
         #/webodm/nginx/letsencrypt-autogen.sh;
     env:
+    - name: WO_DEBUG
+      value: "NO"
     - name: WO_BROKER
       value: "redis://broker"
     - name: WO_SSL
@@ -73,15 +75,17 @@ spec:
     - name: WO_HOST
       value: "${WEBAPP_HOST}"
     - name: WO_PORT
-      value: "80"
-    - name: WO_SSL_INSECURE_PORT_REDIRECT
       value: "443"
+    - name: WO_SSL_INSECURE_PORT_REDIRECT
+      value: "80"
     - name: WO_AUTH0_DOMAIN
       value: ${WO_AUTH0_DOMAIN}
     - name: WO_AUTH0_KEY
       value: ${WO_AUTH0_KEY}
     - name: WO_AUTH0_SECRET
       value: ${WO_AUTH0_SECRET}
+    - name: WO_ENCRYPTION_KEY
+      value: ${WO_ENCRYPTION_KEY}
     #image: opendronemap/webodm_webapp
     image: ghcr.io/auscalabledronecloud/asdc-webodm:latest
     imagePullPolicy: ""
@@ -108,6 +112,8 @@ spec:
     env:
     - name: WO_BROKER
       value: redis://broker
+    - name: WO_ENCRYPTION_KEY
+      value: ${WO_ENCRYPTION_KEY}
     #image: opendronemap/webodm_webapp
     image: ghcr.io/auscalabledronecloud/asdc-webodm:latest
     imagePullPolicy: ""
