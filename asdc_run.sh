@@ -221,8 +221,8 @@ create_volume $DB_VOLUME_SIZE db-storage
 export DB_VOLUME_ID=$VOL_ID
 
 # Create volume for jupyterhub
-create_volume $JHUB_VOLUME_SIZE jhub-db
-export JHUB_VOLUME_ID=$VOL_ID
+# create_volume $JHUB_VOLUME_SIZE jhub-db
+# export JHUB_VOLUME_ID=$VOL_ID
 
 #Apply the storage IDs to the persistent volumes and volume sizes to volumes/claims
 cat templates/webapp-persistentvolume.yaml | envsubst > webapp-persistentvolume.yaml
@@ -576,3 +576,7 @@ export ASDC_SECRETS_BASE64=$(cat templates/asdc-secrets.tpl.yaml | envsubst | ba
 
 cat templates/jupyterhub-configmap.yaml | envsubst | kubectl apply -f -
 cat templates/jupyterhub-secret.yaml | envsubst | kubectl apply -f -
+
+# Bootstrap flux.
+# Installs flux if it's not already present, using the configured live repo. This is idempotent.
+flux bootstrap ${FLUX_LIVE_REPO_TYPE} --owner=${FLUX_LIVE_REPO_OWNER} --repository=${FLUX_LIVE_REPO} --team=${FLUX_LIVE_REPO_TEAM} --path=${FLUX_LIVE_REPO_PATH}
