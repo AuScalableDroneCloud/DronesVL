@@ -209,6 +209,18 @@ helm install gpu-operator --devel nvidia/gpu-operator --set driver.repository=gh
 echo --- Phase 2a : Deployment: Volumes and storage
 ####################################################################################################
 
+function apply_template()
+{
+  #Use envsubst to apply variables to template .yaml files
+  #$1 = filename.yaml
+
+  #Runs envsubst but skips vars not defined in env https://unix.stackexchange.com/a/492778/17168
+  cat templates/$1 | envsubst "$(env | cut -d= -f1 | sed -e 's/^/$/')" > yaml/$1.yaml
+
+  #Apply to cluster
+  kubectl apply -f yaml/$1.yaml
+}
+
 ### Create persistent cinder volumes
 
 #Volume creation unction
@@ -239,27 +251,30 @@ create_volume $JHUB_VOLUME_SIZE jhub-db
 export JHUB_VOLUME_ID=$VOL_ID
 
 #Apply the storage IDs to the persistent volumes and volume sizes to volumes/claims
-cat templates/webapp-persistentvolume.yaml | envsubst > webapp-persistentvolume.yaml
-cat templates/dbdata-persistentvolume.yaml | envsubst > dbdata-persistentvolume.yaml
-cat templates/jhubdb-persistentvolume.yaml | envsubst > jhubdb-persistentvolume.yaml
-cat templates/webapp-persistentvolumeclaim.yaml | envsubst > webapp-persistentvolumeclaim.yaml
-cat templates/dbdata-persistentvolumeclaim.yaml | envsubst > dbdata-persistentvolumeclaim.yaml
+apply_template webapp-persistentvolume.yaml
+apply_template webapp-persistentvolume.yaml
+apply_template dbdata-persistentvolume.yaml
+apply_template jhubdb-persistentvolume.yaml
+apply_template webapp-persistentvolumeclaim.yaml
+apply_template dbdata-persistentvolumeclaim.yaml
 
 # Create StorageClasses for dynamic provisioning
-cat templates/storage-classes.yaml | envsubst > storage-classes.yaml
-kubectl apply -f storage-classes.yaml
+apply_template storage-classes.yaml
 
 ####################################################################################################
 echo --- Phase 2b : Deployment: pods
 ####################################################################################################
 
-#Apply hostname to webapp-worker
-cat templates/webapp-worker-pod.yaml | envsubst > webapp-worker-pod.yaml
-
 #Deploy the server WebODM instance
-kubectl apply -f dbdata-persistentvolume.yaml,webapp-persistentvolume.yaml,db-service.yaml,db-deployment.yaml,dbdata-persistentvolumeclaim.yaml,broker-deployment.yaml,webapp-worker-pod.yaml,webapp-persistentvolumeclaim.yaml,broker-service.yaml,webapp-service.yaml
+apply_template db-service.yaml
+apply_template db-deployment.yaml
+apply_template broker-deployment.yaml
+apply_template webapp-worker-pod.yaml,
+apply_template broker-service.yaml
+apply_template webapp-service.yaml
 
 #Deploy processing nodes
+#TODO: Move this to the end, get the web site up and running completely first
 NODE_VOL_IDS=()
 function deploy_node()
 {
@@ -281,10 +296,8 @@ function deploy_node()
     NODE_VOL_IDS+=( $VOL_ID )
 
     echo "Deploying $3 : $4 as $NODE_NAME"
-    cat templates/nodeodm.yaml | envsubst > nodeodm.yaml
-    cat templates/nodeodm-service.yaml | envsubst > nodeodm-service.yaml
-    kubectl apply -f nodeodm.yaml
-    kubectl apply -f nodeodm-service.yaml
+    apply_template nodeodm.yaml
+    apply_template nodeodm-service.yaml
   fi
 }
 
@@ -594,7 +607,7 @@ helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/
 helm repo update
 
 # Install the jupyterhub release
-cat templates/jupyterhub-config.yaml | envsubst > jupyterhub-config.yaml
+apply_template jupyterhub-config.yaml
 helm upgrade --cleanup-on-fail --install jhub jupyterhub/jupyterhub --namespace jhub --create-namespace --version=${JHUB_CHART_VERSION} --values jupyterhub-config.yaml
 
 kubectl -n jhub get pod
