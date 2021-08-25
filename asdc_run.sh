@@ -193,8 +193,17 @@ echo --- Phase 1b : NVidia GPU Setup
 #kubectl apply -f nvidia-driver-container/daemonsets/nvidia-gpu-device-plugin-fedatomic.yaml
 
 #Using helm gpu-operator
-helm install gpu-operator --devel nvidia/gpu-operator --set driver.repository=ghcr.io/auscalabledronecloud,driver.version=460.32.03 --wait
-#helm delete gpu-operator
+helm repo add nvidia https://nvidia.github.io/gpu-operator
+helm repo update
+
+#Must match version in current build at https://github.com/AuScalableDroneCloud/nvidia-driver-build-fedora
+NVIDIA_DRIVER=460.32.03
+#NVIDIA_DRIVER=470.57.02 #Errors due to gcc version? Might need a newer coreos
+
+# See for options: https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/getting-started.html#chart-customization-options
+# See default values here: https://github.com/NVIDIA/gpu-operator/blob/master/deployments/gpu-operator/values.yaml
+# Enabling PodSecurityPolicies to fix crash in cuda-validator "PodSecurityPolicy: unable to admit pod"
+helm install gpu-operator --devel nvidia/gpu-operator --set driver.repository=ghcr.io/auscalabledronecloud,driver.version=$NVIDIA_DRIVER,psp.enabled=true --wait
 
 ####################################################################################################
 echo --- Phase 2a : Deployment: Volumes and storage
