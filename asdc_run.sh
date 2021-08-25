@@ -61,11 +61,16 @@ then
   #NOTE: This just fails when the cluster is running, so it's ok to run without checking here
   openstack coe cluster template delete $TEMPLATE;
 
-  #Working labels for k8s 1.17.11 on fedora-coreos-32
-  LABELS=container_infra_prefix=registry.rc.nectar.org.au/nectarmagnum/,kube_tag=v1.17.11,master_lb_floating_ip_enabled=true,docker_volume_type=standard,availability_zone=$ZONE,cinder_csi_enabled=true
+  KUBE_TAG=v1.21.1
+  FLANNEL_TAG=v0.14.0-amd64
+  #KUBE_TAG=v1.17.11
+  #FLANNEL_TAG=v0.12.0-amd64
 
-  #Labels for older version, must use fedora-atomic-latest
-  #LABELS=container_infra_prefix=docker.io/nectarmagnum/,cloud_provider_tag=v1.14.0,kube_tag=v1.14.6,master_lb_floating_ip_enabled=true,availability_zone=$ZONE
+  #Working labels for k8s 1.21.1 on fedora-coreos-32
+  LABELS=container_infra_prefix=registry.rc.nectar.org.au/nectarmagnum/,kube_tag=$KUBE_TAG,flannel_tag=$FLANNEL_TAG,master_lb_floating_ip_enabled=true,docker_volume_type=standard,availability_zone=$ZONE,cinder_csi_enabled=true,ingress_controller=octavia
+
+  #Current default labels from kubernetes-monash-02-v1.21.1
+  #container_infra_prefix=registry.rc.nectar.org.au/nectarmagnum/,kube_tag=v1.21.1,flannel_tag=v0.14.0-amd64,master_lb_floating_ip_enabled=true,cinder_csi_enabled=true,docker_volume_type=standard,availability_zone=monash-02,ingress_controller=octavia
 
   #Creating the template
   echo "Using labels: $LABELS"
