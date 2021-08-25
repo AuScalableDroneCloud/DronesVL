@@ -465,9 +465,11 @@ fi
 EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 #EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.spec.loadBalancerIP}')
 echo "Service ingress IP is : $EXTERNAL_IP"
+FIXED_IP=$(openstack floating ip list --floating-ip-address $EXTERNAL_IP -c 'Fixed IP Address' -f value)
+echo "Associated internal Fixed IP is: $FIXED_IP"
 
 #If webapp host resolves to this service load balancer IP, everything is good
-if [ ${WEBAPP_IP} = ${EXTERNAL_IP} ];
+if [ ${WEBAPP_IP} = ${EXTERNAL_IP} ] && [ ${FIXED_IP} != "None" ];
 then
   echo "$WEBAPP_HOST ip matches service ip already, looks good to go"
 else
@@ -485,14 +487,13 @@ else
     echo "No external IP available yet for load balancer, aborting"
     return 0
   fi
-  echo Ext IP $EXTERNAL_IP
-  FIXED_IP=$(openstack floating ip list --floating-ip-address $EXTERNAL_IP -c 'Fixed IP Address' -f value)
-  echo Fixed IP $FIXED_IP
   PORT_ID=$(openstack floating ip list --floating-ip-address $EXTERNAL_IP -c Port -f value)
   echo Port $PORT_ID
   OLD_ID=$(openstack floating ip list --floating-ip-address $EXTERNAL_IP -c ID -f value)
   echo ID $OLD_ID
 
+  #NOTE: there is an issue here if the FIP has been manually disassociated
+  #need to detect and re-assign the port
   if [ ! -z ${OLD_ID} ];
   then
     if [ ${EXTERNAL_IP} != ${FLOATING_IP} ];
