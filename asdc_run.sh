@@ -61,11 +61,16 @@ then
   #NOTE: This just fails when the cluster is running, so it's ok to run without checking here
   openstack coe cluster template delete $TEMPLATE;
 
-  #Working labels for k8s 1.17.11 on fedora-coreos-32
-  LABELS=container_infra_prefix=registry.rc.nectar.org.au/nectarmagnum/,kube_tag=v1.17.11,master_lb_floating_ip_enabled=true,docker_volume_type=standard,availability_zone=$ZONE,cinder_csi_enabled=true
+  KUBE_TAG=v1.21.1
+  FLANNEL_TAG=v0.14.0-amd64
+  #KUBE_TAG=v1.17.11
+  #FLANNEL_TAG=v0.12.0-amd64
 
-  #Labels for older version, must use fedora-atomic-latest
-  #LABELS=container_infra_prefix=docker.io/nectarmagnum/,cloud_provider_tag=v1.14.0,kube_tag=v1.14.6,master_lb_floating_ip_enabled=true,availability_zone=$ZONE
+  #Working labels for k8s 1.21.1 on fedora-coreos-32
+  LABELS=container_infra_prefix=registry.rc.nectar.org.au/nectarmagnum/,kube_tag=$KUBE_TAG,flannel_tag=$FLANNEL_TAG,master_lb_floating_ip_enabled=true,docker_volume_type=standard,availability_zone=$ZONE,cinder_csi_enabled=true,ingress_controller=octavia
+
+  #Current default labels from kubernetes-monash-02-v1.21.1
+  #container_infra_prefix=registry.rc.nectar.org.au/nectarmagnum/,kube_tag=v1.21.1,flannel_tag=v0.14.0-amd64,master_lb_floating_ip_enabled=true,cinder_csi_enabled=true,docker_volume_type=standard,availability_zone=monash-02,ingress_controller=octavia
 
   #Creating the template
   echo "Using labels: $LABELS"
@@ -188,12 +193,33 @@ echo --- Phase 1b : NVidia GPU Setup
 #kubectl apply -f nvidia-driver-container/daemonsets/nvidia-gpu-device-plugin-fedatomic.yaml
 
 #Using helm gpu-operator
-helm install gpu-operator --devel nvidia/gpu-operator --set driver.repository=ghcr.io/auscalabledronecloud,driver.version=460.32.03 --wait
-#helm delete gpu-operator
+helm repo add nvidia https://nvidia.github.io/gpu-operator
+helm repo update
+
+#Must match version in current build at https://github.com/AuScalableDroneCloud/nvidia-driver-build-fedora
+NVIDIA_DRIVER=460.32.03
+#NVIDIA_DRIVER=470.57.02 #Errors due to gcc version? Might need a newer coreos
+
+# See for options: https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/getting-started.html#chart-customization-options
+# See default values here: https://github.com/NVIDIA/gpu-operator/blob/master/deployments/gpu-operator/values.yaml
+# Enabling PodSecurityPolicies to fix crash in cuda-validator "PodSecurityPolicy: unable to admit pod"
+helm install gpu-operator --devel nvidia/gpu-operator --set driver.repository=ghcr.io/auscalabledronecloud,driver.version=$NVIDIA_DRIVER,psp.enabled=true --wait
 
 ####################################################################################################
 echo --- Phase 2a : Deployment: Volumes and storage
 ####################################################################################################
+
+function apply_template()
+{
+  #Use envsubst to apply variables to template .yaml files
+  #$1 = filename.yaml
+
+  #Runs envsubst but skips vars not defined in env https://unix.stackexchange.com/a/492778/17168
+  cat templates/$1 | envsubst "$(env | cut -d= -f1 | sed -e 's/^/$/')" > yaml/$1.yaml
+
+  #Apply to cluster
+  kubectl apply -f yaml/$1.yaml
+}
 
 ### Create persistent cinder volumes
 
@@ -225,29 +251,31 @@ export DB_VOLUME_ID=$VOL_ID
 # export JHUB_VOLUME_ID=$VOL_ID
 
 #Apply the storage IDs to the persistent volumes and volume sizes to volumes/claims
-cat templates/webapp-persistentvolume.yaml | envsubst > webapp-persistentvolume.yaml
-cat templates/dbdata-persistentvolume.yaml | envsubst > dbdata-persistentvolume.yaml
-cat templates/webapp-persistentvolumeclaim.yaml | envsubst > webapp-persistentvolumeclaim.yaml
-cat templates/dbdata-persistentvolumeclaim.yaml | envsubst > dbdata-persistentvolumeclaim.yaml
+apply_template webapp-persistentvolume.yaml
+apply_template dbdata-persistentvolume.yaml
+apply_template webapp-persistentvolumeclaim.yaml
+apply_template dbdata-persistentvolumeclaim.yaml
 
 # Create StorageClasses for dynamic provisioning
-cat templates/storage-classes.yaml | envsubst > storage-classes.yaml
-kubectl apply -f storage-classes.yaml
+apply_template storage-classes.yaml
 
 # Create the secret for accessing the cephfs shared data volume
-cat templates/shared-data-cephfs-secret.yaml | envsubst > shared-data-cephfs-secret.yaml
+apply_template shared-data-cephfs-secret.yaml 
 
 ####################################################################################################
 echo --- Phase 2b : Deployment: pods
 ####################################################################################################
 
-#Apply hostname to webapp-worker
-cat templates/webapp-worker-pod.yaml | envsubst > webapp-worker-pod.yaml
-
 #Deploy the server WebODM instance
-kubectl apply -f dbdata-persistentvolume.yaml,webapp-persistentvolume.yaml,db-service.yaml,db-deployment.yaml,dbdata-persistentvolumeclaim.yaml,broker-deployment.yaml,webapp-worker-pod.yaml,webapp-persistentvolumeclaim.yaml,broker-service.yaml,webapp-service.yaml
+apply_template db-service.yaml
+apply_template db-deployment.yaml
+apply_template broker-deployment.yaml
+apply_template webapp-worker-pod.yaml,
+apply_template broker-service.yaml
+apply_template webapp-service.yaml
 
 #Deploy processing nodes
+#TODO: Move this to the end, get the web site up and running completely first
 NODE_VOL_IDS=()
 function deploy_node()
 {
@@ -269,10 +297,8 @@ function deploy_node()
     NODE_VOL_IDS+=( $VOL_ID )
 
     echo "Deploying $3 : $4 as $NODE_NAME"
-    cat templates/nodeodm.yaml | envsubst > nodeodm.yaml
-    cat templates/nodeodm-service.yaml | envsubst > nodeodm-service.yaml
-    kubectl apply -f nodeodm.yaml
-    kubectl apply -f nodeodm-service.yaml
+    apply_template nodeodm.yaml
+    apply_template nodeodm-service.yaml
   fi
 }
 
@@ -288,10 +314,10 @@ do
     #(Note: we had to build our own image as public opendronemap/nodeodm:gpu doesn't seem to exist yet)
     #https://github.com/OpenDroneMap/NodeODM#using-gpu-acceleration-for-sift-processing-inside-nodeodm
     echo "Requesting CPU+GPU node"
-    deploy_node nodeodm$n nodeodm ghcr.io/auscalabledronecloud/asdc-nodeodm-gpu 3000 1
+    deploy_node nodeodm$n nodeodm ghcr.io/auscalabledronecloud/asdc-nodeodm-gpu 3000 1 ${ODM_FLAGS_GPU}
   else
     echo "Requesting CPU only node"
-    deploy_node nodeodm$n nodeodm ghcr.io/auscalabledronecloud/asdc-nodeodm 3000 0
+    deploy_node nodeodm$n nodeodm ghcr.io/auscalabledronecloud/asdc-nodeodm 3000 0 ${ODM_FLAGS}
   fi
 done
 
@@ -453,9 +479,11 @@ fi
 EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 #EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.spec.loadBalancerIP}')
 echo "Service ingress IP is : $EXTERNAL_IP"
+FIXED_IP=$(openstack floating ip list --floating-ip-address $EXTERNAL_IP -c 'Fixed IP Address' -f value)
+echo "Associated internal Fixed IP is: $FIXED_IP"
 
 #If webapp host resolves to this service load balancer IP, everything is good
-if [ ${WEBAPP_IP} = ${EXTERNAL_IP} ];
+if [ ${WEBAPP_IP} = ${EXTERNAL_IP} ] && [ ${FIXED_IP} != "None" ];
 then
   echo "$WEBAPP_HOST ip matches service ip already, looks good to go"
 else
@@ -473,14 +501,13 @@ else
     echo "No external IP available yet for load balancer, aborting"
     return 0
   fi
-  echo Ext IP $EXTERNAL_IP
-  FIXED_IP=$(openstack floating ip list --floating-ip-address $EXTERNAL_IP -c 'Fixed IP Address' -f value)
-  echo Fixed IP $FIXED_IP
   PORT_ID=$(openstack floating ip list --floating-ip-address $EXTERNAL_IP -c Port -f value)
   echo Port $PORT_ID
   OLD_ID=$(openstack floating ip list --floating-ip-address $EXTERNAL_IP -c ID -f value)
   echo ID $OLD_ID
 
+  #NOTE: there is an issue here if the FIP has been manually disassociated
+  #need to detect and re-assign the port
   if [ ! -z ${OLD_ID} ];
   then
     if [ ${EXTERNAL_IP} != ${FLOATING_IP} ];
@@ -574,8 +601,8 @@ echo "Done. Access on https://$WEBAPP_HOST"
 # Base64 encoding for k8s secrets
 export ASDC_SECRETS_BASE64=$(cat templates/asdc-secrets.tpl.yaml | envsubst | base64 -w 0)
 
-cat templates/jupyterhub-configmap.yaml | envsubst | kubectl apply -f -
-cat templates/jupyterhub-secret.yaml | envsubst | kubectl apply -f -
+apply_template jupyterhub-configmap.yaml
+apply_template jupyterhub-secret.yaml
 
 # Bootstrap flux.
 # Installs flux if it's not already present, using the configured live repo. This is idempotent.
