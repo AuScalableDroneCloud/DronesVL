@@ -64,7 +64,7 @@ do
   dec=secrets/$secret
 
   #If decrypted file doesn't exist, or encrypted is newer than
-  if [ ! -f "$secret" ] || [ $enc -nt $dec ];
+  if [ ! -f "$dec" ] || [ $enc -nt $dec ];
   then
     #Decrypt the file
     echo "DECRYPTING $secret"
