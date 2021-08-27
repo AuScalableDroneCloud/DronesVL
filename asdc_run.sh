@@ -51,10 +51,10 @@ function cluster_launched()
 }
 
 #Use our config file from openstack magnum for kubectl
-export KUBECONFIG=$(pwd)/config
+export KUBECONFIG=$(pwd)/secrets/kubeconfig
 
-#If ./config exists, then skip cluster build, remove it to re-create
-if [ ! -s "config" ] || ! grep "${CLUSTER}" config;
+#If secrets/kubeconfig exists, then skip cluster build, remove it to re-create
+if [ ! -s "secrets/kubeconfig" ] || ! grep "${CLUSTER}" secrets/kubeconfig;
 then
   echo "Kubernetes config for $CLUSTER not found, preparing to create cluster"
   #DEBUG - delete the existing template to apply changes / edits
@@ -152,6 +152,7 @@ then
 
   #Create the config
   openstack coe cluster config $CLUSTER
+  mv config secrets/kubeconfig
 
   # DNS fails on newer kubernetes with fedora-coreos-32 image, need to restart flannel pods...
   # See: https://tutorials.rc.nectar.org.au/kubernetes/09-troubleshooting
@@ -163,7 +164,7 @@ then
   #kubectl -n kube-system delete pod -l k8s-app=calico-node
 
 else
-  echo "./config exists for $CLUSTER, to force re-creation : rm ./config"
+  echo "secrets/kubeconfig exists for $CLUSTER, to force re-creation : rm secrets/kubeconfig"
   #If config exists but cluster doesn't, remove config and exit here...
   if ! openstack coe cluster show $CLUSTER -f value -c status;
   then
@@ -573,18 +574,18 @@ then
 
   #If domain already has certificate issued, copy to local dir as cert.pem & key.pem
   #If not, will attempt to generate with letsencrypt
-  if [ ! -s "cert.pem" ] || [ ! -s "key.pem" ];
+  if [ ! -s "secrets/cert.pem" ] || [ ! -s "secrets/key.pem" ];
   then
     #Create cert
     kubectl exec webapp-worker -c webapp -- /bin/bash -c "WO_SSL_KEY='' /webodm/nginx/letsencrypt-autogen.sh"
 
     #Copy locally so will not be lost if pod deleted
-    kubectl cp webapp-worker:/webodm/nginx/ssl/cert.pem cert.pem -c webapp
-    kubectl cp webapp-worker:/webodm/nginx/ssl/key.pem key.pem -c webapp
+    kubectl cp webapp-worker:/webodm/nginx/ssl/cert.pem secrets/cert.pem -c webapp
+    kubectl cp webapp-worker:/webodm/nginx/ssl/key.pem secrets/key.pem -c webapp
   else
     #Copy in cert from local
-    kubectl cp cert.pem webapp-worker:/webodm/nginx/ssl/cert.pem -c webapp
-    kubectl cp key.pem webapp-worker:/webodm/nginx/ssl/key.pem -c webapp
+    kubectl cp secrets/cert.pem webapp-worker:/webodm/nginx/ssl/cert.pem -c webapp
+    kubectl cp secrets/key.pem webapp-worker:/webodm/nginx/ssl/key.pem -c webapp
   fi;
 
   #Restart nginx
@@ -607,3 +608,4 @@ apply_template jupyterhub-secret.yaml
 # Bootstrap flux.
 # Installs flux if it's not already present, using the configured live repo. This is idempotent.
 flux bootstrap ${FLUX_LIVE_REPO_TYPE} --owner=${FLUX_LIVE_REPO_OWNER} --repository=${FLUX_LIVE_REPO} --team=${FLUX_LIVE_REPO_TEAM} --path=${FLUX_LIVE_REPO_PATH}
+
