@@ -45,7 +45,8 @@ chmod 600 ${PRIVKEY}
 
 #Get the repo and update
 pushd secrets
-git clone git@github.com:AuScalableDroneCloud/secrets.git encrypted
+#git clone git@github.com:AuScalableDroneCloud/secrets.git encrypted
+git clone https://github.com/AuScalableDroneCloud/secrets.git encrypted
 cd encrypted
 git pull
 popd
@@ -69,6 +70,8 @@ do
     #Decrypt the file
     echo "DECRYPTING $secret"
     ./sshenc.sh -s ${PRIVKEY} < $enc > $dec
+    #Ensure not widely readable
+    chmod 600 $dec
   else
     #Encrypt with public key:
     echo "ENCRYPTING $secret"
