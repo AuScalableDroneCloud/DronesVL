@@ -30,3 +30,12 @@ then
   chmod 700 get_helm.sh
   ./get_helm.sh
 fi
+
+#Install flux if not found
+if ! command -v flux &> /dev/null
+then
+  echo "flux could not be found! attempting to download..."
+  curl -s https://fluxcd.io/install.sh -o flux_install.sh
+  chmod 700 flux_install.sh
+  ./flux_install.sh
+fi
