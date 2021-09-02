@@ -16,6 +16,7 @@ spec:
     targetPort: 8000
     protocol: TCP
   type: LoadBalancer
+  loadBalancerIP: ${WEBAPP_IP}
   selector:
     io.kompose.service: webapp
   #  run: webapp
