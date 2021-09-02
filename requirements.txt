@@ -1,0 +1,6 @@
+python-openstackclient
+python-novaclient
+python-heatclient
+python-magnumclient
+python-manilaclient
+python-keystoneclient
