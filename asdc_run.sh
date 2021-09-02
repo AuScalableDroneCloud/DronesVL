@@ -216,10 +216,10 @@ function apply_template()
   #$1 = filename.yaml
 
   #Runs envsubst but skips vars not defined in env https://unix.stackexchange.com/a/492778/17168
-  cat templates/$1 | envsubst "$(env | cut -d= -f1 | sed -e 's/^/$/')" > yaml/$1.yaml
+  cat templates/$1 | envsubst "$(env | cut -d= -f1 | sed -e 's/^/$/')" > yaml/$1
 
   #Apply to cluster
-  kubectl apply -f yaml/$1.yaml
+  kubectl apply -f yaml/$1
 }
 
 ### Create persistent cinder volumes
@@ -271,7 +271,7 @@ echo --- Phase 2b : Deployment: pods
 apply_template db-service.yaml
 apply_template db-deployment.yaml
 apply_template broker-deployment.yaml
-apply_template webapp-worker-pod.yaml,
+apply_template webapp-worker-pod.yaml
 apply_template broker-service.yaml
 apply_template webapp-service.yaml
 
@@ -438,6 +438,18 @@ echo $WEBAPP_HOST resolves to $WEBAPP_IP
 FIP_ID=$(openstack floating ip list --tags ${WEBAPP_HOST} -c 'ID' -f value)
 if [ -z ${FIP_ID} ];
 then
+  #Tag floating ips with their description, as we can't filter by description only tag
+  FIPS=$(openstack floating ip list -c 'ID' -f value)
+  for FIP_ID in ${FIPS}
+  do
+    DESC=$(openstack floating ip show $FIP_ID -c 'description' -f value)
+    if [ ${DESC} ];
+    then
+      echo Tagging $FIP_ID with $DESC
+      openstack floating ip set --tag='$DESC' $FIP_ID
+    fi
+  done
+
   #Check if floating ip already created and tagged for this hostname
   FP_ID=$(openstack floating ip list --tags ${WEBAPP_HOST} -c ID -f value)
   if [ -z ${FIP_ID} ];
@@ -598,6 +610,8 @@ echo "Done. Access on https://$WEBAPP_HOST"
 # ####################################################################################################
 # echo --- Phase 4 : Apps: Prepare configmaps and secrets for flux
 # ####################################################################################################
+
+kubectl create namespace jupyterhub
 
 # Base64 encoding for k8s secrets
 export ASDC_SECRETS_BASE64=$(cat templates/asdc-secrets.tpl.yaml | envsubst | base64 -w 0)
