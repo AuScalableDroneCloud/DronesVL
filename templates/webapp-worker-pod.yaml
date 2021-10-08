@@ -1,16 +1,9 @@
 apiVersion: v1
 kind: Pod
 #Combined webapp and worker into a single pod to share a volume
-#based on kompose outputs:
-# - webapp-deployment.yaml & worker-deployment.yaml
 metadata:
-  annotations:
-    kompose.cmd: ./kompose convert
-    kompose.version: 1.21.0 (992df58d8)
-  creationTimestamp: null
   labels:
-    io.kompose.service: webapp
-    run: webapp
+    app: webapp
   name: webapp-worker
 spec:
   restartPolicy: Always

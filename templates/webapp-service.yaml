@@ -3,8 +3,7 @@ kind: Service
 metadata:
   name: webapp-service
   labels:
-    run: webapp-service
-    io.kompose.service: webapp-service
+    app: webapp-service
 spec:
   ports:
   - name: "http"
@@ -18,6 +17,5 @@ spec:
   type: LoadBalancer
   loadBalancerIP: ${WEBAPP_IP}
   selector:
-    io.kompose.service: webapp
-  #  run: webapp
+    app: webapp
 
