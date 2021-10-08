@@ -30,7 +30,7 @@ spec:
       - chmod +x /webodm/*.sh;
         apt-get update;
         apt-get install -y psmisc curl vim nmap;
-        /webodm/wait-for-postgres.sh db /webodm/wait-for-it.sh -t 0 broker:6379 -- echo "SERVICES READY";
+        /webodm/wait-for-postgres.sh db /webodm/wait-for-it.sh -t 0 broker:6379 /webodm/wait-for-it.sh -t 0 tusd -- echo "SERVICES READY";
         sed -e 's/:.WO_PORT//g' -i /webodm/nginx/nginx-ssl.conf.template;
         sed -e 's/ssl on;//g' -i /webodm/nginx/nginx-ssl.conf.template;
         sed -e 's/deferred/ssl deferred/g' -i /webodm/nginx/nginx-ssl.conf.template;
@@ -47,7 +47,6 @@ spec:
         then openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes -keyout /webodm/nginx/ssl/key.pem -out /webodm/nginx/ssl/cert.pem -subj "/CN=${WEBAPP_HOST}";
         fi;
         /webodm/start.sh;
-        #
         #/webodm/wait-for-postgres.sh db /webodm/wait-for-it.sh -t 0 broker:6379 -- /webodm/start.sh;
         #sed -e '30,35d' -i /webodm/nginx/nginx-ssl.conf.template;
         #sed -e 's/keep/keep --dry-run/g' -i /webodm/nginx/letsencrypt-autogen.sh;
@@ -95,11 +94,14 @@ spec:
 
   #WebODM worker
   - name: worker
-    command:
-    - /bin/bash
-    - -c
-    - /webodm/wait-for-postgres.sh db /webodm/wait-for-it.sh -t 0 broker:6379
-      -- /webodm/wait-for-it.sh -t 0 localhost:8000 -- /webodm/worker.sh start
+    command: ["/bin/bash", "-c"]
+    args:
+      - apt-get update;
+        apt-get install -y psmisc curl vim nmap;
+        /webodm/wait-for-postgres.sh db /webodm/wait-for-it.sh -t 0 broker:6379
+        -- /webodm/wait-for-it.sh -t 0 localhost:8000 -- echo "SERVICES READY";
+        /webodm/worker.sh start;
+        #cd /webodm/app/media/WebODM/; git ls-files | xargs -I '{}' cp '{}' /webodm/'{}'; cd -;
       #When using worker in same pod as webapp, need to use localhost:8000 above
       #-- /webodm/wait-for-it.sh -t 0 webapp:8000 -- /webodm/worker.sh start
     env:
