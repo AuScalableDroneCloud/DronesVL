@@ -31,7 +31,7 @@ function delete_volume()
 }
 
 #Remove the config file
-rm config
+rm secrets/kubeconfig
 
 ###DON'T DELETE VOLUMES UNLESS STARTING FROM SCRATCH
 exit

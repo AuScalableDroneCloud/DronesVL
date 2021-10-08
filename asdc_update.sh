@@ -39,7 +39,7 @@ then
   exit
 fi
 
-if [ $1 = "webapp" ];
+if [ "$1" = "webapp" ];
 then
   #Delete the worker pod to force rebuild
   kubectl delete pod webapp-worker
@@ -47,7 +47,7 @@ then
   echo "webapp-worker deleted successfully, running asdc_run.sh to re-create and initialise the webapp pod..."
   source asdc_run.sh
 
-elif [ $1 = "web-storage-resize" ];
+elif [ "$1" = "web-storage-resize" ];
 then
 
   #Resize the web-storage volume (experimental)
@@ -72,7 +72,7 @@ then
   echo "running asdc_run.sh to re-create and initialise the webapp pod..."
   source asdc_run.sh
 
-elif [ $1 = "db-storage-resize" ];
+elif [ "$1" = "db-storage-resize" ];
 then
 
   #Resize the db-storage volume (experimental)

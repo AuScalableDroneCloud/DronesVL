@@ -54,7 +54,7 @@ function cluster_launched()
 export KUBECONFIG=$(pwd)/secrets/kubeconfig
 
 #If secrets/kubeconfig exists, then skip cluster build, remove it to re-create
-if [ ! -s "secrets/kubeconfig" ] || ! grep "${CLUSTER}" secrets/kubeconfig;
+if [ ! -s "${KUBECONFIG}" ] || ! grep "${CLUSTER}" ${KUBECONFIG};
 then
   echo "Kubernetes config for $CLUSTER not found, preparing to create cluster"
   #DEBUG - delete the existing template to apply changes / edits
@@ -152,7 +152,7 @@ then
 
   #Create the config
   openstack coe cluster config $CLUSTER
-  mv config secrets/kubeconfig
+  mv config ${KUBECONFIG}
 
   # DNS fails on newer kubernetes with fedora-coreos-32 image, need to restart flannel pods...
   # See: https://tutorials.rc.nectar.org.au/kubernetes/09-troubleshooting
@@ -164,7 +164,7 @@ then
   #kubectl -n kube-system delete pod -l k8s-app=calico-node
 
 else
-  echo "secrets/kubeconfig exists for $CLUSTER, to force re-creation : rm secrets/kubeconfig"
+  echo "${KUBECONFIG} exists for $CLUSTER, to force re-creation : rm ${KUBECONFIG}"
   #If config exists but cluster doesn't, remove config and exit here...
   if ! openstack coe cluster show $CLUSTER -f value -c status;
   then
@@ -210,14 +210,20 @@ helm install gpu-operator --devel nvidia/gpu-operator --set driver.repository=gh
 echo --- Phase 2a : Deployment: Volumes and storage
 ####################################################################################################
 
-function apply_template()
+function subst_template()
 {
   #Use envsubst to apply variables to template .yaml files
   #$1 = filename.yaml
 
   #Runs envsubst but skips vars not defined in env https://unix.stackexchange.com/a/492778/17168
   cat templates/$1 | envsubst "$(env | cut -d= -f1 | sed -e 's/^/$/')" > yaml/$1
+  echo "Applied env to template: templates/$1 => yaml/$1"
+}
 
+function apply_template()
+{
+  #Substitute env vars
+  subst_template $1
   #Apply to cluster
   kubectl apply -f yaml/$1
 }
@@ -247,10 +253,6 @@ export WEB_VOLUME_ID=$VOL_ID
 create_volume $DB_VOLUME_SIZE db-storage
 export DB_VOLUME_ID=$VOL_ID
 
-# Create volume for jupyterhub
-# create_volume $JHUB_VOLUME_SIZE jhub-db
-# export JHUB_VOLUME_ID=$VOL_ID
-
 #Apply the storage IDs to the persistent volumes and volume sizes to volumes/claims
 apply_template webapp-persistentvolume.yaml
 apply_template dbdata-persistentvolume.yaml
@@ -261,10 +263,33 @@ apply_template dbdata-persistentvolumeclaim.yaml
 apply_template storage-classes.yaml
 
 # Create the secret for accessing the cephfs shared data volume
+kubectl create namespace jupyterhub
 apply_template shared-data-cephfs-secret.yaml 
 
 ####################################################################################################
-echo --- Phase 2b : Deployment: pods
+echo --- Phase 2b : Deployment: Tusd / Uppy
+####################################################################################################
+
+# This needs to go before the webapp setup,
+# nginx proxy in webapp-worker requires host to be up
+
+helm repo add skm https://charts.sagikazarmark.dev
+
+#AWS S3 setup - required if tusd is to use object storage
+apply_template s3-secret.yaml
+
+#Setup cinder volume provisioner
+apply_template tusd-pvc.yaml
+
+#Replace variables, then apply values to helm chart
+subst_template tusd-values.yaml
+helm install tusd --wait -f yaml/tusd-values.yaml skm/tusd
+
+#NOTE: AWS stuff is not actually being used currently
+#NOTE: unless connecting a dev instance on localhost, no need for LB and external IP
+
+####################################################################################################
+echo --- Phase 2c : Deployment: WebODM
 ####################################################################################################
 
 #Deploy the server WebODM instance
@@ -274,6 +299,43 @@ apply_template broker-deployment.yaml
 apply_template webapp-worker-pod.yaml
 apply_template broker-service.yaml
 apply_template webapp-service.yaml
+
+#Wait for the load balancer to be provisioned
+echo "Waiting for load balancer IP"
+EXTERNAL_IP=
+while [ -z $EXTERNAL_IP ];
+do
+  printf '.';
+  #EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.spec.loadBalancerIP}')
+  EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  sleep 1
+done
+echo ""
+
+#Used to open port if necessary... already open now but may be from previous test attempts
+#PORT_ID=$(openstack floating ip list --floating-ip-address $EXTERNAL_IP -c Port -f value)
+#openstack port show $PORT_ID -c security_group_ids -f value
+#openstack port set --security-group http $PORT_ID #This was failing
+echo "Accessible on http://$EXTERNAL_IP"
+
+kubectl get pods --all-namespaces -owide
+kubectl get svc
+
+#For debugging... log in to pod shell
+#kubectl exec --stdin --tty webapp-worker -- /bin/bash
+
+#Get output
+#kubectl logs webapp-worker -c worker
+
+#To specify alternate container in multi-container pod
+#kubectl exec --stdin --tty webapp-worker -c worker -- /bin/bash
+
+#When all is ready, start the web app (requires DNS resolution to hostname working for SSL cert)
+#kubectl exec webapp-worker -c webapp -- /webodm/start.sh
+
+####################################################################################################
+echo --- Phase 2d : Deployment: NodeODM
+####################################################################################################
 
 #Deploy processing nodes
 #TODO: Move this to the end, get the web site up and running completely first
@@ -334,89 +396,6 @@ echo ${NODE_VOL_IDS[@]}
 #do
 #  echo $value
 #done
-
-function wait_for_pod()
-{
-  #Loop until pod is running
-  #$1 = pod name
-  until kubectl get pods --field-selector status.phase=Running | grep $1
-  do
-    echo "Waiting for pod to enter status=Running : $1"
-    sleep 2
-  done
-  echo "Pod is running : $1"
-}
-
-for (( n=1; n<=$NODE_ODM; n++ ))
-do
-  #Wait until node running
-  wait_for_pod nodeodm$n
-  #Fix the tmp path storage issue (writes to ./tmp in /var/www, need to use volume or fills ethemeral storage of docker image/node)
-  echo kubectl exec nodeodm$n -- bash -c "if ! [ -L /var/www/tmp ] ; then rmdir /var/www/tmp; mkdir /var/www/data/tmp; ln -s /var/www/data/tmp /var/www/tmp; fi"
-  kubectl exec nodeodm$n -- bash -c "if ! [ -L /var/www/tmp ] ; then rmdir /var/www/tmp; mkdir /var/www/data/tmp; ln -s /var/www/data/tmp /var/www/tmp; fi"
-done
-
-#Wait until clusterodm running
-wait_for_pod clusterodm
-
-#Get current list of running nodes
-CODM_LIST=$(kubectl exec clusterodm -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080")
-
-#Adding nodes to cluster via telnet interface - create the script
-CLUSTER_NODES='(sleep 1; '
-for (( n=1; n<=$NODE_ODM; n++ ))
-do
-  NODE_NAME=nodeodm$n
-  if ! echo "$CODM_LIST" | grep "$NODE_NAME";
-  then
-    CLUSTER_NODES+="echo 'NODE ADD $NODE_NAME 3000'; sleep 1;"
-  fi
-done
-CLUSTER_NODES+=') | telnet localhost 8080'
-
-#If no nodes need adding, can skip this
-if echo "$CLUSTER_NODES" | grep "node";
-then
-  #Exec command to set cluster nodes
-  #(TODO: a better way would be for each node to add itself to the cluster on spinning up)
-  echo $CLUSTER_NODES
-  kubectl exec clusterodm -- bash -c "$CLUSTER_NODES"
-  kubectl exec clusterodm -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080"
-fi
-
-#Wait for the load balancer to be provisioned
-echo "Waiting for load balancer IP"
-EXTERNAL_IP=
-while [ -z $EXTERNAL_IP ];
-do
-  printf '.';
-  #EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.spec.loadBalancerIP}')
-  EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-  sleep 1
-done
-echo ""
-
-#Used to open port if necessary... already open now but may be from previous test attempts
-#PORT_ID=$(openstack floating ip list --floating-ip-address $EXTERNAL_IP -c Port -f value)
-#openstack port show $PORT_ID -c security_group_ids -f value
-#openstack port set --security-group http $PORT_ID #This was failing
-echo "Accessible on http://$EXTERNAL_IP"
-
-kubectl get pods --all-namespaces -owide
-kubectl get svc
-
-#For debugging... log in to pod shell
-#kubectl exec --stdin --tty webapp-worker -- /bin/bash
-
-#Get output
-#kubectl logs webapp-worker -c worker
-
-#To specify alternate container in multi-container pod
-#kubectl exec --stdin --tty webapp-worker -c worker -- /bin/bash
-
-#When all is ready, start the web app (requires DNS resolution to hostname working for SSL cert)
-#kubectl exec webapp-worker -c webapp -- /webodm/start.sh
-
 
 ####################################################################################################
 echo --- Phase 3a : Configuration: Floating IP
@@ -607,11 +586,64 @@ fi
 #Final URL
 echo "Done. Access on https://$WEBAPP_HOST"
 
-# ####################################################################################################
-# echo --- Phase 4 : Apps: Prepare configmaps and secrets for flux
-# ####################################################################################################
+####################################################################################################
+echo --- Phase 4a : Apps: ClusterODM
+####################################################################################################
 
-kubectl create namespace jupyterhub
+# Need to add all the running NodeODM instances to ClusterODM list via telnet interface
+
+function wait_for_pod()
+{
+  #Loop until pod is running
+  #$1 = pod name
+  until kubectl get pods --field-selector status.phase=Running | grep $1
+  do
+    echo "Waiting for pod to enter status=Running : $1"
+    sleep 2
+  done
+  echo "Pod is running : $1"
+}
+
+for (( n=1; n<=$NODE_ODM; n++ ))
+do
+  #Wait until node running
+  wait_for_pod nodeodm$n
+  #Fix the tmp path storage issue (writes to ./tmp in /var/www, need to use volume or fills ethemeral storage of docker image/node)
+  echo kubectl exec nodeodm$n -- bash -c "if ! [ -L /var/www/tmp ] ; then rmdir /var/www/tmp; mkdir /var/www/data/tmp; ln -s /var/www/data/tmp /var/www/tmp; fi"
+  kubectl exec nodeodm$n -- bash -c "if ! [ -L /var/www/tmp ] ; then rmdir /var/www/tmp; mkdir /var/www/data/tmp; ln -s /var/www/data/tmp /var/www/tmp; fi"
+done
+
+#Wait until clusterodm running
+wait_for_pod clusterodm
+
+#Get current list of running nodes
+CODM_LIST=$(kubectl exec clusterodm -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080")
+
+#Adding nodes to cluster via telnet interface - create the script
+CLUSTER_NODES='(sleep 1; '
+for (( n=1; n<=$NODE_ODM; n++ ))
+do
+  NODE_NAME=nodeodm$n
+  if ! echo "$CODM_LIST" | grep "$NODE_NAME";
+  then
+    CLUSTER_NODES+="echo 'NODE ADD $NODE_NAME 3000'; sleep 1;"
+  fi
+done
+CLUSTER_NODES+=') | telnet localhost 8080'
+
+#If no nodes need adding, can skip this
+if echo "$CLUSTER_NODES" | grep "node";
+then
+  #Exec command to set cluster nodes
+  #(TODO: a better way would be for each node to add itself to the cluster on spinning up)
+  echo $CLUSTER_NODES
+  kubectl exec clusterodm -- bash -c "$CLUSTER_NODES"
+  kubectl exec clusterodm -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080"
+fi
+
+# ####################################################################################################
+# echo --- Phase 4b : Apps: Jupyterhub - Prepare configmaps and secrets for flux
+# ####################################################################################################
 
 # Base64 encoding for k8s secrets
 export ASDC_SECRETS_BASE64=$(cat templates/asdc-secrets.tpl.yaml | envsubst | base64 -w 0)
@@ -620,6 +652,20 @@ apply_template jupyterhub-configmap.yaml
 apply_template jupyterhub-secret.yaml
 
 # Bootstrap flux.
+#(Requires github personal access token with repo rights in GITHUB_TOKEN)
+
 # Installs flux if it's not already present, using the configured live repo. This is idempotent.
 flux bootstrap ${FLUX_LIVE_REPO_TYPE} --owner=${FLUX_LIVE_REPO_OWNER} --repository=${FLUX_LIVE_REPO} --team=${FLUX_LIVE_REPO_TEAM} --path=${FLUX_LIVE_REPO_PATH}
+
+#Check
+#kubectl -n jupyterhub describe hr jupyterhub
+#Delete
+#kubectl -n jupyterhub delete hr jupyterhub
+
+#See/Suspend/resume
+#flux get helmreleases -n jupyterhub
+#flux suspend helmrelease jupyterhub -n jupyterhub
+#flux resume helmrelease jupyterhub -n jupyterhub
+
+#BUG: autohttps / proxy pods seem to fail to get letsencrypt cert on first boot, need to delete and let them run again
 
