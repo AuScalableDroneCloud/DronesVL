@@ -50,6 +50,18 @@ function cluster_launched()
   return 1
 }
 
+function wait_for_pod()
+{
+  #Loop until pod is running
+  #$1 = pod name
+  until kubectl get pods --field-selector status.phase=Running | grep $1
+  do
+    echo "Waiting for pod to enter status=Running : $1"
+    sleep 2
+  done
+  echo "Pod is running : $1"
+}
+
 #Use our config file from openstack magnum for kubectl
 export KUBECONFIG=$(pwd)/secrets/kubeconfig
 
@@ -564,6 +576,7 @@ then
 
   #Wait for the server to be reachable with self-signed or provided certificate
   #(THIS CAN TAKE A WHILE)
+  echo "Waiting for initial https service "
   while ! timeout 2.0 curl -k https://${WEBAPP_HOST} &> /dev/null;
     do printf '*';
     sleep 5;
@@ -575,15 +588,20 @@ then
 
   #If domain already has certificate issued, copy to local dir as cert.pem & key.pem
   #If not, will attempt to generate with letsencrypt
+  echo "Checking for existing SSL cert..."
   if [ ! -s "secrets/cert.pem" ] || [ ! -s "secrets/key.pem" ];
   then
+    echo " - Not found, generating"
     #Create cert
     kubectl exec webapp-worker -c webapp -- /bin/bash -c "WO_SSL_KEY='' /webodm/nginx/letsencrypt-autogen.sh"
 
     #Copy locally so will not be lost if pod deleted
-    kubectl cp webapp-worker:/webodm/nginx/ssl/cert.pem secrets/cert.pem -c webapp
-    kubectl cp webapp-worker:/webodm/nginx/ssl/key.pem secrets/key.pem -c webapp
+    echo " - Copying to ./secrets"
+    #(can't use kubectl cp for symlinks)
+    kubectl exec --stdin --tty webapp-worker -c webapp -- cat /webodm/nginx/ssl/cert.pem > secrets/cert.pem
+    kubectl exec --stdin --tty webapp-worker -c webapp -- cat /webodm/nginx/ssl/key.pem > secrets/key.pem
   else
+    echo " - Found, copying to webapp"
     #Copy in cert from local
     kubectl cp secrets/cert.pem webapp-worker:/webodm/nginx/ssl/cert.pem -c webapp
     kubectl cp secrets/key.pem webapp-worker:/webodm/nginx/ssl/key.pem -c webapp
@@ -601,18 +619,6 @@ echo --- Phase 4a : Apps: ClusterODM
 ####################################################################################################
 
 # Need to add all the running NodeODM instances to ClusterODM list via telnet interface
-
-function wait_for_pod()
-{
-  #Loop until pod is running
-  #$1 = pod name
-  until kubectl get pods --field-selector status.phase=Running | grep $1
-  do
-    echo "Waiting for pod to enter status=Running : $1"
-    sleep 2
-  done
-  echo "Pod is running : $1"
-}
 
 for (( n=1; n<=$NODE_ODM; n++ ))
 do
