@@ -1,0 +1,30 @@
+# Metashape servers
+# 
+# NOTE: license server is not suitable for running in container!
+# not recommended, but leaving for reference anyway
+#
+apiVersion: v1
+kind: Pod
+metadata:
+  name: metashape-server
+  labels:
+    app: metashape
+spec:
+  restartPolicy: OnFailure
+  #maxRetries: 3
+  containers:
+    - name: metashape-server 
+      image: ghcr.io/auscalabledronecloud/metashape-server:latest
+      ports:
+      - name: 'metashape'
+        containerPort: 5840
+
+    #- name: metashape-license 
+    #  image: ghcr.io/auscalabledronecloud/metashape-license-server:latest
+    #  ports:
+    #  - name: 'metashape'
+    #    containerPort: 5840
+    #  - name: 'license'
+    #    containerPort: 5053
+    #  - name: 'admin'
+    #    containerPort: 5054

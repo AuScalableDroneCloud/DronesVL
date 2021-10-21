@@ -1,0 +1,26 @@
+# NOTE: license server is not suitable for running in container!
+# not recommended, but leaving for reference anyway
+apiVersion: v1
+kind: Service
+metadata:
+  name: metashape-service
+spec:
+  ports:
+  #Metashape server
+  - name: 'metashape'
+    port: 5840
+    targetPort: 5840
+  #License server, disable if not required outside cluster
+  #- name: 'license'
+  #  port: 5053
+  #  targetPort: 5053
+  #Admin port - enable only during initial configuration!
+  #- name: 'admin'
+  #  port: 5054
+  #  targetPort: 5054
+  #type: ClusterIP
+  type: LoadBalancer
+  loadBalancerIP: ${METASHAPE_IP}
+  selector:
+    app: metashape
+

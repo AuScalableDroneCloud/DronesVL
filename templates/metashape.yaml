@@ -1,0 +1,50 @@
+# Metashape with GPU support
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ${NODE_NAME}
+spec:
+  #restartPolicy: OnFailure
+  restartPolicy: Never
+  #maxRetries: 3
+  containers:
+    - name: metashape 
+      image: ghcr.io/auscalabledronecloud/metashape:latest
+      env:
+      - name: METASHAPE_SERVER
+        value: droneserver.erc.monash.edu
+      command: ["/bin/bash", "-c"]
+      args:
+      - nvidia-smi;
+        cd /home/metashape/metashape-pro;
+        echo "HOST $METASHAPE_SERVER any 5053" > server.lic ;
+        cat server.lic;
+        ./metashape --node --host $METASHAPE_SERVER --root $METASHAPE_ROOT --capability any --platform offscreen --gpu_mask 1 --cpu_enable 0;
+        tail -f /dev/null; #Keep pod running for debuggung
+
+      resources:
+        limits:
+          nvidia.com/gpu: 1 # requesting 1 GPU
+
+      volumeMounts:
+      - name: dronedrive
+        mountPath: "/mnt/dronedrive"
+
+  #Use anti-affinity to prevent similar instances running on same k8s node
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: "type"
+                operator: In
+                values:
+                - ${NODE_TYPE}
+          topologyKey: "kubernetes.io/hostname"
+
+  volumes:
+  - name: dronedrive
+    persistentVolumeClaim:
+      claimName: pvc-smb
+

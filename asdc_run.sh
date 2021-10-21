@@ -416,6 +416,52 @@ echo ${NODE_VOL_IDS[@]}
 #done
 
 ####################################################################################################
+echo --- Phase 2e : Deployment: Metashape
+####################################################################################################
+
+#Apply the secrets
+#TODO: move secrets to secrets/secret.env and these to ./templates
+kubectl apply -f metashape/dronedrive_secret.yaml
+
+if [ "$NODE_METASHAPE" -gt "0" ]; then
+  #Setup the cifs/smb volume mount - this has problems, keeps restarting
+  # - Install csi plugin
+  curl -skSL https://raw.githubusercontent.com/kubernetes-csi/csi-driver-smb/master/deploy/install-driver.sh | bash -s master --
+  # - Create persistent volume and claim
+  kubectl apply -f metashape/csi-pv.yaml -f metashape/csi-pvc.yaml
+
+  #Launch metashape server and load balancer service
+  #(NOTE: we had to launch these in a separate VM on monash-02 instead
+  # as monash-01 to monash-02 network is really broken right now
+  # also - license server does not handle being run in a different container each time)
+  #apply_template metashape-server.yaml
+  #apply_template metashape-service.yaml
+  #wait_for_pod metashape-server
+fi
+
+#Launch metashape processing nodes - require nvidia gpu resource
+function deploy_metashape()
+{
+  #Deploy Metashape pod with unique name
+  #$1 = id#
+  export NODE_NAME=metashape-k8s$1
+  if ! kubectl get pods | grep $NODE_NAME
+  then
+    echo ">>> METASHAPE NODE LAUNCH... " $NODE_NAME
+
+    echo "Deploying $2 : $3 as $NODE_NAME"
+    export NODE_TYPE="metashape"
+    apply_template metashape.yaml
+  fi
+}
+
+#Deploy Metashape nodes
+for (( n=1; n<=$NODE_METASHAPE; n++ ))
+do
+  deploy_metashape $n
+done
+
+####################################################################################################
 echo --- Phase 3a : Configuration: Floating IP
 ####################################################################################################
 
