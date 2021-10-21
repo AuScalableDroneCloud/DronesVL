@@ -230,7 +230,7 @@ function apply_template()
 
 ### Create persistent cinder volumes
 
-#Volume creation unction
+#Volume creation function
 VOL_ID=''
 #List of all volume names for faster checks
 VOLS=$(openstack volume list -c Name -f value)
@@ -254,10 +254,20 @@ create_volume $DB_VOLUME_SIZE db-storage
 export DB_VOLUME_ID=$VOL_ID
 
 #Apply the storage IDs to the persistent volumes and volume sizes to volumes/claims
-apply_template webapp-persistentvolume.yaml
-apply_template dbdata-persistentvolume.yaml
-apply_template webapp-persistentvolumeclaim.yaml
-apply_template dbdata-persistentvolumeclaim.yaml
+if [ "$WEB_VOLUME_ID" ]; then
+  apply_template webapp-persistentvolume.yaml
+  apply_template webapp-persistentvolumeclaim.yaml
+else
+  echo "WEB_VOLUME_ID not set, aborting!"
+  return 1
+fi
+if [ "$DB_VOLUME_ID" ]; then
+  apply_template dbdata-persistentvolume.yaml
+  apply_template dbdata-persistentvolumeclaim.yaml
+else
+  echo "DB_VOLUME_ID not set, aborting!"
+  return 1
+fi
 
 # Create StorageClasses for dynamic provisioning
 apply_template storage-classes.yaml
@@ -316,10 +326,10 @@ echo ""
 #PORT_ID=$(openstack floating ip list --floating-ip-address $EXTERNAL_IP -c Port -f value)
 #openstack port show $PORT_ID -c security_group_ids -f value
 #openstack port set --security-group http $PORT_ID #This was failing
-echo "Accessible on http://$EXTERNAL_IP"
+echo "Ready at http://$EXTERNAL_IP"
 
-kubectl get pods --all-namespaces -owide
-kubectl get svc
+#kubectl get pods --all-namespaces -owide
+#kubectl get svc
 
 #For debugging... log in to pod shell
 #kubectl exec --stdin --tty webapp-worker -- /bin/bash
