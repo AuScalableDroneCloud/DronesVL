@@ -298,7 +298,7 @@ echo --- Phase 2b : Deployment: Tusd / Uppy
 helm repo add skm https://charts.sagikazarmark.dev
 
 #AWS S3 setup - required if tusd is to use object storage
-apply_template s3-secret.yaml
+#apply_template s3-secret.yaml
 
 #Setup cinder volume provisioner
 apply_template tusd-pvc.yaml
