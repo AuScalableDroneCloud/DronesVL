@@ -23,9 +23,9 @@ spec:
 
   volumes:
     - name: ${NODE_VOLUME_NAME}
-      cinder:
-        volumeID: ${NODE_VOLUME_ID}
-        fsType: ext4
+      persistentVolumeClaim:
+        claimName: ${NODE_NAME}-cinder-pvc
+        readOnly: false
 
   #Use anti-affinity to prevent similar instances running on same k8s node
   affinity:

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ${NODE_NAME}-cinder-pvc
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: ${NODE_VOLUME_SIZE}Gi
+#      fsType: ext4 # default is ext4
+  storageClassName: csi-sc-cinderplugin
+

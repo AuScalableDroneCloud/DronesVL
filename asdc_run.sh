@@ -360,8 +360,6 @@ echo --- Phase 2d : Deployment: NodeODM
 ####################################################################################################
 
 #Deploy processing nodes
-#TODO: Move this to the end, get the web site up and running completely first
-NODE_VOL_IDS=()
 function deploy_node()
 {
   #Deploy NodeODM pod using name and volume ID
@@ -376,21 +374,19 @@ function deploy_node()
   if ! kubectl get pods | grep $NODE_NAME
   then
     echo ">>> NODE LAUNCH... " $NODE_NAME $NODE_PORT $NODE_IMAGE $NODE_TYPE $NODE_VOLUME_NAME $NODE_ARGS
-    create_volume $NODE_VOLSIZE $NODE_VOLUME_NAME
-    export NODE_VOLUME_ID=$VOL_ID
-    echo "create_volume $NODE_VOLSIZE $NODE_VOLUME_NAME ==> $VOL_ID"
-    NODE_VOL_IDS+=( $VOL_ID )
-
     echo "Deploying $3 : $4 as $NODE_NAME"
     apply_template nodeodm.yaml
+    apply_template node-pvc.yaml
     apply_template nodeodm-service.yaml
   fi
 }
 
 #Deploy clusterODM
+export NODE_VOLUME_SIZE=1 #No volume storage necessary, so set as minimum
 deploy_node clusterodm clusterodm opendronemap/clusterodm 3000 0 '["--public-address", "http://clusterodm:3000"]'
 
 #Deploy NodeODM nodes
+export NODE_VOLUME_SIZE=$NODE_VOLSIZE
 for (( n=1; n<=$NODE_ODM; n++ ))
 do
   #First $NODE_ODM_GPU nodes are configured to use gpu

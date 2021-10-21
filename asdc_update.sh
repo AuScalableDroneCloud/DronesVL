@@ -60,12 +60,12 @@ then
 
   #Re-apply the volume sizes to volumes/claims
   export WEB_VOLUME_ID=$(openstack volume show web-storage -c id -f value)
-  cat templates/webapp-persistentvolume.yaml | envsubst > webapp-persistentvolume.yaml
-  cat templates/webapp-persistentvolumeclaim.yaml | envsubst > webapp-persistentvolumeclaim.yaml
+  cat templates/webapp-persistentvolume.yaml | envsubst > yaml/webapp-persistentvolume.yaml
+  cat templates/webapp-persistentvolumeclaim.yaml | envsubst > yaml/webapp-persistentvolumeclaim.yaml
 
   #Re-create with resizer pod
   #(runs privileged and uses resize2fs to resize the ext4 fs)
-  kubectl create -f resize-webapp-volume.yaml,webapp-persistentvolume.yaml,webapp-persistentvolumeclaim.yaml
+  kubectl create -f templates/resize-webapp-volume.yaml -f yaml/webapp-persistentvolume.yaml -f yaml/webapp-persistentvolumeclaim.yaml
 
   sleep 5
 
