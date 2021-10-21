@@ -18,23 +18,18 @@ spec:
   containers:
   #WebODM app
   - name: webapp-container
-    #Added loop to wait for hostname to respond to ping, we need to wait for the service to come up and the load-balancer IP to be changed
+    #- Added loop to wait for hostname to respond to ping, we need to wait for the service to come up and the load-balancer IP to be changed
     #to allow SSL before running start.sh
+    #- Added patch/apply.sh to copy in selected patched files
+    #- Added loop to apply patches and restart if main gunicorn process is killed 
     command: ["/bin/bash", "-c"]
-    #install killall, curl and some debugging stuff
-    #pgrep is not installed and can't install psproc, but echo will return 0 so hack this
-    #need to hack nginx-ssl.conf.template
-    #Creates a self-signed cert and skips letsencrypt... for debugging
-    #NOTE: using --dry-run to avoid rate limits
     args:
       - chmod +x /webodm/*.sh;
-        apt-get update;
-        apt-get install -y psmisc curl vim nmap;
-        /webodm/wait-for-postgres.sh db /webodm/wait-for-it.sh -t 0 broker:6379 /webodm/wait-for-it.sh -t 0 tusd -- echo "SERVICES READY";
-        sed -e 's/:.WO_PORT//g' -i /webodm/nginx/nginx-ssl.conf.template;
-        sed -e 's/ssl on;//g' -i /webodm/nginx/nginx-ssl.conf.template;
-        sed -e 's/deferred/ssl deferred/g' -i /webodm/nginx/nginx-ssl.conf.template;
+        apt-get update -qq;
+        apt-get install -y -qq psmisc curl vim nmap;
+        /webodm/wait-for-postgres.sh db /webodm/wait-for-it.sh -t 0 broker:6379 -- /webodm/wait-for-it.sh -t 0 tusd:80 -- /webodm/wait-for-it.sh -t 0 cesium:8080 -- echo "SERVICES READY";
         echo "Waiting for" ${WEBAPP_HOST};
+        /webodm/app/media/patch/apply.sh;
         while :;
         do
           printf '.';
@@ -46,13 +41,11 @@ spec:
         if [ ! -s "/webodm/nginx/ssl/cert.pem" ];
         then openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes -keyout /webodm/nginx/ssl/key.pem -out /webodm/nginx/ssl/cert.pem -subj "/CN=${WEBAPP_HOST}";
         fi;
-        /webodm/start.sh;
-        #/webodm/wait-for-postgres.sh db /webodm/wait-for-it.sh -t 0 broker:6379 -- /webodm/start.sh;
-        #sed -e '30,35d' -i /webodm/nginx/nginx-ssl.conf.template;
-        #sed -e 's/keep/keep --dry-run/g' -i /webodm/nginx/letsencrypt-autogen.sh;
-        #sed -e '52iopenssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes -keyout ssl/key.pem -out ssl/cert.pem -subj "/CN=${WEBAPP_HOST}"' -i /webodm/nginx/letsencrypt-autogen.sh;
-        #sed -e 's/pgrep/echo pgrep/g' -i /webodm/nginx/letsencrypt-autogen.sh;
-        #/webodm/nginx/letsencrypt-autogen.sh;
+        while :;
+        do
+          /webodm/start.sh;
+          /webodm/app/media/patch/apply.sh;
+        done;
     env:
     - name: WO_DEBUG
       value: "NO"
@@ -96,8 +89,8 @@ spec:
   - name: worker
     command: ["/bin/bash", "-c"]
     args:
-      - apt-get update;
-        apt-get install -y psmisc curl vim nmap;
+      - apt-get update -qq;
+        apt-get install -y -qq psmisc curl vim nmap;
         /webodm/wait-for-postgres.sh db /webodm/wait-for-it.sh -t 0 broker:6379
         -- /webodm/wait-for-it.sh -t 0 localhost:8000 -- echo "SERVICES READY";
         /webodm/worker.sh start;

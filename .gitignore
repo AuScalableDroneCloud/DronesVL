@@ -6,3 +6,4 @@ sshenc.sh
 */*
 !templates/*
 !secrets/secret.env.template
+!patch/*
