@@ -785,4 +785,15 @@ then
   kubectl exec clusterodm -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080"
 fi
 
+####################################################################################################
+echo --- Phase 4b : Apps: Monitoring
+####################################################################################################
+# https://www.botkube.io/installation/slack/
+kubectl create namespace botkube
+helm repo add infracloudio https://infracloudio.github.io/charts
+helm repo update
+
+#Use values file instead
+subst_template botkube-values.yaml
+helm install --version v0.12.4 botkube --namespace botkube --wait -f yaml/botkube-values.yaml infracloudio/botkube
 
