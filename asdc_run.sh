@@ -33,7 +33,10 @@ function get_status()
 
 function cluster_check()
 {
-  if [ "$STATUS" == $1 ]; then
+  #if [ "$STATUS" == $1 ]; then
+  #Checks for desired status as sub-string,
+  #eg: UPDATE_COMPLETE/CREATE_COMPLETE will match COMPLETE
+  if [[ "$STATUS" == *"$1"* ]]; then
     return 0
   fi
   return 1
@@ -41,10 +44,19 @@ function cluster_check()
 
 function cluster_launched()
 {
-  if cluster_check "CREATE_COMPLETE" ; then
+  if cluster_check "COMPLETE" ; then
     return 0
   fi
   if cluster_check "CREATE_IN_PROGRESS"; then
+    return 0
+  fi
+  return 1
+}
+
+function nodegroup_check()
+{
+  NSTATUS=$(openstack coe nodegroup show $CLUSTER cluster-nodes -f value -c status)
+  if [[ "$NSTATUS" == *"$1"* ]]; then
     return 0
   fi
   return 1
@@ -96,7 +108,7 @@ then
     NWDRIVER="flannel"
 
     #Floating ip disabled, master-lb-enabled, master-lb-floating-ip enabled
-    openstack coe cluster template create $TEMPLATE --image $IMAGE --keypair $KEYPAIR --external-network $NETWORK --floating-ip-disabled --master-lb-enabled --flavor $FLAVOUR --master-flavor $MASTER_FLAVOUR --docker-volume-size 25 --docker-storage-driver overlay2 --network-driver $NWDRIVER --coe kubernetes --volume-driver cinder --coe kubernetes --labels $LABELS
+    openstack coe cluster template create $TEMPLATE --image $IMAGE --keypair $KEYPAIR --external-network $NETWORK --floating-ip-disabled --master-lb-enabled --flavor $APP_FLAVOUR --master-flavor $MASTER_FLAVOUR --docker-volume-size $DOCKER_VOL_SIZE --docker-storage-driver overlay2 --network-driver $NWDRIVER --coe kubernetes --volume-driver cinder --coe kubernetes --labels $LABELS
 
     #Floating ip enabled (allows ssh into nodes but requires extra FIPs)
     #openstack coe cluster template create $TEMPLATE --image $IMAGE --keypair $KEYPAIR --external-network $NETWORK --dns-nameserver 8.8.8.8 --flavor $FLAVOUR --master-flavor $MASTER_FLAVOUR --docker-volume-size 25 --docker-storage-driver overlay2 --network-driver flannel --coe kubernetes --volume-driver cinder --coe kubernetes --labels $LABELS
@@ -109,12 +121,12 @@ then
   get_status
   if ! cluster_check "CREATE_FAILED" && ! cluster_launched; then
     #Create the cluster from default template
-    openstack coe cluster create --cluster-template $TEMPLATE --keypair $KEYPAIR --master-count 1 --node-count $NODES $CLUSTER
+    openstack coe cluster create --cluster-template $TEMPLATE --keypair $KEYPAIR --master-count 1 --node-count $APP_NODES $CLUSTER
     echo "Cluster create initiated..."
   fi
 
   #Wait until cluster complete
-  until cluster_check "CREATE_COMPLETE"
+  until cluster_check "COMPLETE"
   do
     get_status
     printf "$STATUS "
@@ -162,9 +174,24 @@ then
   fi
   '
 
+  #Setup node groups
+  # https://docs.openstack.org/magnum/latest/user/#node-groups
+  #(Will error if already created so ok to run again without check)
+  openstack coe nodegroup create $CLUSTER cluster-nodes --flavor $CLUSTER_FLAVOUR --min-nodes $NODES --node-count $NODES --role cluster
+  #Second cluster group? (once more hardware available)
+  #openstack coe nodegroup create $CLUSTER cluster2-nodes --flavor $CLUSTER2_FLAVOUR --min-nodes $NODES --node-count $NODES --role cluster
+
+  #Wait until nodegroup complete
+  until nodegroup_check "COMPLETE"
+  do
+    printf "Nodegroup $NSTATUS "
+    sleep 2
+  done
+
   #Create the config
   openstack coe cluster config $CLUSTER
   mv config ${KUBECONFIG}
+  chmod 600 ${KUBECONFIG}
 
   # DNS fails on newer kubernetes with fedora-coreos-32 image, need to restart flannel pods...
   # See: https://tutorials.rc.nectar.org.au/kubernetes/09-troubleshooting
@@ -190,7 +217,19 @@ fi;
 kubectl get nodes
 
 ####################################################################################################
-echo --- Phase 1b : NVidia GPU Setup
+echo --- Phase 1b : Node taints
+####################################################################################################
+# All gpu cluster nodes need to be tainted to prevent other pods running on them!
+#kubectl taint nodes $NODE key1=value1:NoSchedule
+#kubectl taint nodes $NODE compute=compute-jobs-only:NoSchedule
+for node in $(kubectl get nodes -l magnum.openstack.org/role=cluster -ojsonpath='{.items[*].metadata.name}'); 
+do 
+  #kubectl get pods -A -owide --field-selector spec.nodeName=$node;
+  kubectl taint nodes $node compute=true:NoSchedule
+done
+
+####################################################################################################
+echo --- Phase 1c : NVidia GPU Setup
 ####################################################################################################
 # Apply our GPU driver installer/plugin container via daemonset
 # this installs the nvidia drivers and device plugin in the node host os

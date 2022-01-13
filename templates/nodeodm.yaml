@@ -27,6 +27,12 @@ spec:
         claimName: ${NODE_NAME}-cinder-pvc
         readOnly: false
 
+  #Allow running on compute nodes
+  tolerations:
+  - key: "compute"
+    operator: "Exists"
+    effect: "NoSchedule"
+
   #Use anti-affinity to prevent similar instances running on same k8s node
   affinity:
     podAntiAffinity:

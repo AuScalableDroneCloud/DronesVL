@@ -21,7 +21,7 @@ spec:
         echo "HOST $METASHAPE_SERVER any 5053" > server.lic ;
         cat server.lic;
         ./metashape --node --host $METASHAPE_SERVER --root $METASHAPE_ROOT --capability any --platform offscreen --gpu_mask 1 --cpu_enable 0;
-        tail -f /dev/null; #Keep pod running for debuggung
+        tail -f /dev/null; #Keep pod running for debugging
 
       resources:
         limits:
@@ -30,6 +30,12 @@ spec:
       volumeMounts:
       - name: dronedrive
         mountPath: "/mnt/dronedrive"
+
+  #Allow running on compute nodes
+  tolerations:
+  - key: "compute"
+    operator: "Exists"
+    effect: "NoSchedule"
 
   #Use anti-affinity to prevent similar instances running on same k8s node
   affinity:
