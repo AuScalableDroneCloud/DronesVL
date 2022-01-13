@@ -181,13 +181,6 @@ then
   #Second cluster group? (once more hardware available)
   #openstack coe nodegroup create $CLUSTER cluster2-nodes --flavor $CLUSTER2_FLAVOUR --min-nodes $NODES --node-count $NODES --role cluster
 
-  #Wait until nodegroup complete
-  until nodegroup_check "COMPLETE"
-  do
-    printf "Nodegroup $NSTATUS "
-    sleep 2
-  done
-
   #Create the config
   openstack coe cluster config $CLUSTER
   mv config ${KUBECONFIG}
@@ -215,47 +208,6 @@ fi;
 #kubectl get all
 #kubectl get all --all-namespaces
 kubectl get nodes
-
-####################################################################################################
-echo --- Phase 1b : Node taints
-####################################################################################################
-# All gpu cluster nodes need to be tainted to prevent other pods running on them!
-#kubectl taint nodes $NODE key1=value1:NoSchedule
-#kubectl taint nodes $NODE compute=compute-jobs-only:NoSchedule
-for node in $(kubectl get nodes -l magnum.openstack.org/role=cluster -ojsonpath='{.items[*].metadata.name}'); 
-do 
-  #kubectl get pods -A -owide --field-selector spec.nodeName=$node;
-  kubectl taint nodes $node compute=true:NoSchedule
-done
-
-####################################################################################################
-echo --- Phase 1c : NVidia GPU Setup
-####################################################################################################
-# Apply our GPU driver installer/plugin container via daemonset
-# this installs the nvidia drivers and device plugin in the node host os
-#https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/#deploying-nvidia-gpu-device-plugin
-
-#Fedora atomic 29
-#kubectl apply -f https://raw.githubusercontent.com/AuScalableDroneCloud/nvidia-driver-container/atomic/daemonsets/nvidia-gpu-device-plugin-fedatomic.yaml
-
-#Fedora coreos 32
-#kubectl apply -f https://raw.githubusercontent.com/AuScalableDroneCloud/nvidia-driver-container/coreos/daemonsets/nvidia-gpu-device-plugin-fedatomic.yaml
-
-#Local copy
-#kubectl apply -f nvidia-driver-container/daemonsets/nvidia-gpu-device-plugin-fedatomic.yaml
-
-#Using helm gpu-operator
-helm repo add nvidia https://nvidia.github.io/gpu-operator
-helm repo update
-
-#Must match version in current build at https://github.com/AuScalableDroneCloud/nvidia-driver-build-fedora
-NVIDIA_DRIVER=460.32.03
-#NVIDIA_DRIVER=470.57.02 #Errors due to gcc version? Might need a newer coreos
-
-# See for options: https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/getting-started.html#chart-customization-options
-# See default values here: https://github.com/NVIDIA/gpu-operator/blob/master/deployments/gpu-operator/values.yaml
-# Enabling PodSecurityPolicies to fix crash in cuda-validator "PodSecurityPolicy: unable to admit pod"
-helm install gpu-operator --devel nvidia/gpu-operator --set driver.repository=ghcr.io/auscalabledronecloud,driver.version=$NVIDIA_DRIVER,psp.enabled=true --wait
 
 ####################################################################################################
 echo --- Phase 2a : Deployment: Volumes and storage
@@ -376,24 +328,6 @@ apply_template webapp-worker-pod.yaml
 apply_template broker-service.yaml
 apply_template webapp-service.yaml
 
-#Wait for the load balancer to be provisioned
-echo "Waiting for load balancer IP"
-EXTERNAL_IP=
-while [ -z $EXTERNAL_IP ];
-do
-  printf '.';
-  #EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.spec.loadBalancerIP}')
-  EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-  sleep 1
-done
-echo ""
-
-#Used to open port if necessary... already open now but may be from previous test attempts
-#PORT_ID=$(openstack floating ip list --floating-ip-address $EXTERNAL_IP -c Port -f value)
-#openstack port show $PORT_ID -c security_group_ids -f value
-#openstack port set --security-group http $PORT_ID #This was failing
-echo "Ready at http://$EXTERNAL_IP"
-
 #kubectl get pods --all-namespaces -owide
 #kubectl get svc
 
@@ -409,114 +343,8 @@ echo "Ready at http://$EXTERNAL_IP"
 #When all is ready, start the web app (requires DNS resolution to hostname working for SSL cert)
 #kubectl exec webapp-worker -c webapp -- /webodm/start.sh
 
-####################################################################################################
-echo --- Phase 2d : Deployment: NodeODM
-####################################################################################################
-
-#Deploy processing nodes
-function deploy_node()
-{
-  #Deploy NodeODM pod using name and volume ID
-  #$1 = id#, $2 = type, $3 = image, $4 = port, $5 = gpus, $6 = optional args
-  export NODE_NAME=$1
-  export NODE_VOLUME_NAME=$1-storage
-  export NODE_TYPE=$2
-  export NODE_IMAGE=$3
-  export NODE_PORT=$4
-  export NODE_GPUS=$5
-  export NODE_ARGS=$6
-  if ! kubectl get pods | grep $NODE_NAME
-  then
-    echo ">>> NODE LAUNCH... " $NODE_NAME $NODE_PORT $NODE_IMAGE $NODE_TYPE $NODE_VOLUME_NAME $NODE_ARGS
-    echo "Deploying $3 : $4 as $NODE_NAME"
-    apply_template nodeodm.yaml
-    apply_template node-pvc.yaml
-    apply_template nodeodm-service.yaml
-  fi
-}
-
-#Deploy clusterODM
-export NODE_VOLUME_SIZE=1 #No volume storage necessary, so set as minimum
-deploy_node clusterodm clusterodm opendronemap/clusterodm 3000 0 '["--public-address", "http://clusterodm:3000"]'
-
-#Deploy NodeODM nodes
-export NODE_VOLUME_SIZE=$NODE_VOLSIZE
-for (( n=1; n<=$NODE_ODM; n++ ))
-do
-  #First $NODE_ODM_GPU nodes are configured to use gpu
-  if [ "$n" -le "$NODE_ODM_GPU" ]; then 
-    #For GPU Nodes use gpu nodeodm image and set NODE_GPUS > 0
-    #(Note: we had to build our own image as public opendronemap/nodeodm:gpu doesn't seem to exist yet)
-    #https://github.com/OpenDroneMap/NodeODM#using-gpu-acceleration-for-sift-processing-inside-nodeodm
-    echo "Requesting CPU+GPU node"
-    deploy_node nodeodm$n nodeodm ghcr.io/auscalabledronecloud/asdc-nodeodm-gpu 3000 1 ${ODM_FLAGS_GPU}
-  else
-    echo "Requesting CPU only node"
-    deploy_node nodeodm$n nodeodm ghcr.io/auscalabledronecloud/asdc-nodeodm 3000 0 ${ODM_FLAGS}
-  fi
-done
-
-#Deploy any additional nodes (MicMac)
-for (( n=$NODE_ODM+1; n<=$NODE_ODM+$NODE_MICMAC; n++ ))
-do
-  deploy_node nodemicmac$n nodemicmac dronemapper/node-micmac 3000 0
-done
-
-echo ${NODE_VOL_IDS[@]}
-# Iterate the loop to read and print each array element
-#for value in "${NODE_VOL_IDS[@]}"
-#do
-#  echo $value
-#done
-
-####################################################################################################
-echo --- Phase 2e : Deployment: Metashape
-####################################################################################################
-
-#Apply the secrets
-#TODO: move secrets to secrets/secret.env and these to ./templates
-kubectl apply -f metashape/dronedrive_secret.yaml
-
-if [ "$NODE_METASHAPE" -gt "0" ]; then
-  #Setup the cifs/smb volume mount - this has problems, keeps restarting
-  # - Install csi plugin
-  curl -skSL https://raw.githubusercontent.com/kubernetes-csi/csi-driver-smb/master/deploy/install-driver.sh | bash -s master --
-  # - Create persistent volume and claim
-  kubectl apply -f metashape/csi-pv.yaml -f metashape/csi-pvc.yaml
-
-  #Launch metashape server and load balancer service
-  #(NOTE: we had to launch these in a separate VM on monash-02 instead
-  # as monash-01 to monash-02 network is really broken right now
-  # also - license server does not handle being run in a different container each time)
-  #apply_template metashape-server.yaml
-  #apply_template metashape-service.yaml
-  #wait_for_pod metashape-server
-fi
-
-#Launch metashape processing nodes - require nvidia gpu resource
-function deploy_metashape()
-{
-  #Deploy Metashape pod with unique name
-  #$1 = id#
-  export NODE_NAME=metashape-k8s$1
-  if ! kubectl get pods | grep $NODE_NAME
-  then
-    echo ">>> METASHAPE NODE LAUNCH... " $NODE_NAME
-
-    echo "Deploying $2 : $3 as $NODE_NAME"
-    export NODE_TYPE="metashape"
-    apply_template metashape.yaml
-  fi
-}
-
-#Deploy Metashape nodes
-for (( n=1; n<=$NODE_METASHAPE; n++ ))
-do
-  deploy_metashape $n
-done
-
 # ####################################################################################################
-# echo --- Phase 2f : Deployment: Flux (Jupyterhub, cesium) - Prepare configmaps and secrets for flux
+echo --- Phase 3 : Deployment: Flux - Jupyterhub, cesium - Prepare configmaps and secrets for flux
 # ####################################################################################################
 
 # Base64 encoding for k8s secrets
@@ -547,14 +375,26 @@ flux bootstrap ${FLUX_LIVE_REPO_TYPE} --owner=${FLUX_LIVE_REPO_OWNER} --reposito
 #flux get all
 
 ####################################################################################################
-echo --- Phase 3a : Configuration: Floating IP
+echo --- Phase 4a : Configuration: Floating IP
 ####################################################################################################
 
-#Create our own floating-ip which will be set in DNS for our hostname
-#Have not found a way to pass to load-balancer/service creation, so...
-#1) Get port and local IP from load-balancer
-#2) Delete lb assigned floating ip
-#3) Set this fip to replace it
+#Wait for the load balancer to be provisioned, necessary?
+#echo "Waiting for load balancer IP"
+EXTERNAL_IP=
+while [ -z $EXTERNAL_IP ];
+do
+  printf '.';
+  #EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.spec.loadBalancerIP}')
+  EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  sleep 1
+done
+echo ""
+
+#Used to open port if necessary... already open now but may be from previous test attempts
+#PORT_ID=$(openstack floating ip list --floating-ip-address $EXTERNAL_IP -c Port -f value)
+#openstack port show $PORT_ID -c security_group_ids -f value
+#openstack port set --security-group http $PORT_ID #This was failing
+echo "Ready at http://$EXTERNAL_IP"
 
 #Check if the hostname resolves to an already defined floating-ip
 WEBAPP_IP=$(getent hosts ${WEBAPP_HOST} | awk '{ print $1 }')
@@ -688,7 +528,7 @@ else
 fi
 
 ####################################################################################################
-echo --- Phase 3b : Configuration: SSL
+echo --- Phase 4b : Configuration: SSL
 ####################################################################################################
 
 #By default, webodm will attempt to setup SSL when enabled and no cert or key passed
@@ -743,7 +583,109 @@ fi
 echo "Done. Access on https://$WEBAPP_HOST"
 
 ####################################################################################################
-echo --- Phase 4a : Apps: ClusterODM
+echo --- Phase 5a : GPU cluster node taints
+####################################################################################################
+
+#Wait until nodegroup complete
+until nodegroup_check "COMPLETE"
+do
+  printf "Nodegroup $NSTATUS "
+  sleep 2
+done
+
+# All gpu cluster nodes need to be tainted to prevent other pods running on them!
+#kubectl taint nodes $NODE key1=value1:NoSchedule
+#kubectl taint nodes $NODE compute=compute-jobs-only:NoSchedule
+for node in $(kubectl get nodes -l magnum.openstack.org/role=cluster -ojsonpath='{.items[*].metadata.name}'); 
+do 
+  #kubectl get pods -A -owide --field-selector spec.nodeName=$node;
+  kubectl taint nodes $node compute=true:NoSchedule
+done
+
+####################################################################################################
+echo --- Phase 5b : NVidia GPU Setup
+####################################################################################################
+# Apply our GPU driver installer/plugin container via daemonset
+# this installs the nvidia drivers and device plugin in the node host os
+
+#Using helm gpu-operator
+helm repo add nvidia https://nvidia.github.io/gpu-operator
+helm repo update
+
+#Must match version in current build at https://github.com/AuScalableDroneCloud/nvidia-driver-build-fedora
+NVIDIA_DRIVER=460.32.03
+#NVIDIA_DRIVER=470.57.02 #Errors due to gcc version? Might need a newer coreos
+
+# See for options: https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/getting-started.html#chart-customization-options
+# See default values here: https://github.com/NVIDIA/gpu-operator/blob/master/deployments/gpu-operator/values.yaml
+# Enabling PodSecurityPolicies to fix crash in cuda-validator "PodSecurityPolicy: unable to admit pod"
+#helm install gpu-operator --devel nvidia/gpu-operator --set driver.repository=ghcr.io/auscalabledronecloud,driver.version=$NVIDIA_DRIVER,psp.enabled=true --wait
+
+subst_template gpu-operator-values.yaml
+helm install gpu-operator --devel --wait -f yaml/gpu-operator-values.yaml nvidia/gpu-operator
+
+####################################################################################################
+echo --- Phase 6a : Deployment: NodeODM
+####################################################################################################
+
+#Deploy processing nodes
+function deploy_node()
+{
+  #Deploy NodeODM pod using name and volume ID
+  #$1 = id#, $2 = type, $3 = image, $4 = port, $5 = gpus, $6 = optional args
+  export NODE_NAME=$1
+  export NODE_VOLUME_NAME=$1-storage
+  export NODE_TYPE=$2
+  export NODE_IMAGE=$3
+  export NODE_PORT=$4
+  export NODE_GPUS=$5
+  export NODE_ARGS=$6
+  if ! kubectl get pods | grep $NODE_NAME
+  then
+    echo ">>> NODE LAUNCH... " $NODE_NAME $NODE_PORT $NODE_IMAGE $NODE_TYPE $NODE_VOLUME_NAME $NODE_ARGS
+    echo "Deploying $3 : $4 as $NODE_NAME"
+    apply_template nodeodm.yaml
+    apply_template node-pvc.yaml
+    apply_template nodeodm-service.yaml
+  fi
+}
+
+#Deploy clusterODM
+export NODE_VOLUME_SIZE=1 #No volume storage necessary, so set as minimum
+deploy_node clusterodm clusterodm opendronemap/clusterodm 3000 0 '["--public-address", "http://clusterodm:3000"]'
+
+#Deploy NodeODM nodes
+export NODE_VOLUME_SIZE=$NODE_VOLSIZE
+for (( n=1; n<=$NODE_ODM; n++ ))
+do
+  #First $NODE_ODM_GPU nodes are configured to use gpu
+  if [ "$n" -le "$NODE_ODM_GPU" ]; then 
+    #For GPU Nodes use gpu nodeodm image and set NODE_GPUS > 0
+    #(Note: we had to build our own image as public opendronemap/nodeodm:gpu doesn't seem to exist yet)
+    #https://github.com/OpenDroneMap/NodeODM#using-gpu-acceleration-for-sift-processing-inside-nodeodm
+    echo "Requesting CPU+GPU node"
+    deploy_node nodeodm$n nodeodm ghcr.io/auscalabledronecloud/asdc-nodeodm-gpu 3000 1 ${ODM_FLAGS_GPU}
+  else
+    echo "Requesting CPU only node"
+    deploy_node nodeodm$n nodeodm ghcr.io/auscalabledronecloud/asdc-nodeodm 3000 0 ${ODM_FLAGS}
+  fi
+done
+
+#Deploy any additional nodes (MicMac)
+for (( n=$NODE_ODM+1; n<=$NODE_ODM+$NODE_MICMAC; n++ ))
+do
+  deploy_node nodemicmac$n nodemicmac dronemapper/node-micmac 3000 0
+done
+
+echo ${NODE_VOL_IDS[@]}
+# Iterate the loop to read and print each array element
+#for value in "${NODE_VOL_IDS[@]}"
+#do
+#  echo $value
+#done
+
+####################################################################################################
+echo --- Phase 6b : Apps: ClusterODM
 ####################################################################################################
 
 # Need to add all the running NodeODM instances to ClusterODM list via telnet interface
@@ -786,7 +728,53 @@ then
 fi
 
 ####################################################################################################
-echo --- Phase 4b : Apps: Monitoring
+echo --- Phase 6c : Deployment: Metashape
+####################################################################################################
+
+#Apply the secrets
+#TODO: move secrets to secrets/secret.env and these to ./templates
+kubectl apply -f metashape/dronedrive_secret.yaml
+
+if [ "$NODE_METASHAPE" -gt "0" ]; then
+  #Setup the cifs/smb volume mount - this has problems, keeps restarting
+  # - Install csi plugin
+  curl -skSL https://raw.githubusercontent.com/kubernetes-csi/csi-driver-smb/master/deploy/install-driver.sh | bash -s master --
+  # - Create persistent volume and claim
+  kubectl apply -f metashape/csi-pv.yaml -f metashape/csi-pvc.yaml
+
+  #Launch metashape server and load balancer service
+  #(NOTE: we had to launch these in a separate VM on monash-02 instead
+  # as monash-01 to monash-02 network is really broken right now
+  # also - license server does not handle being run in a different container each time)
+  #apply_template metashape-server.yaml
+  #apply_template metashape-service.yaml
+  #wait_for_pod metashape-server
+fi
+
+#Launch metashape processing nodes - require nvidia gpu resource
+function deploy_metashape()
+{
+  #Deploy Metashape pod with unique name
+  #$1 = id#
+  export NODE_NAME=metashape-k8s$1
+  if ! kubectl get pods | grep $NODE_NAME
+  then
+    echo ">>> METASHAPE NODE LAUNCH... " $NODE_NAME
+
+    echo "Deploying $2 : $3 as $NODE_NAME"
+    export NODE_TYPE="metashape"
+    apply_template metashape.yaml
+  fi
+}
+
+#Deploy Metashape nodes
+for (( n=1; n<=$NODE_METASHAPE; n++ ))
+do
+  deploy_metashape $n
+done
+
+####################################################################################################
+echo --- Phase 7 : Apps: Monitoring
 ####################################################################################################
 # https://www.botkube.io/installation/slack/
 kubectl create namespace botkube
@@ -796,4 +784,5 @@ helm repo update
 #Use values file instead
 subst_template botkube-values.yaml
 helm install --version v0.12.4 botkube --namespace botkube --wait -f yaml/botkube-values.yaml infracloudio/botkube
+
 
