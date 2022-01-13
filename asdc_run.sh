@@ -353,6 +353,21 @@ helm install tusd --wait -f yaml/tusd-values.yaml skm/tusd
 echo --- Phase 2c : Deployment: WebODM
 ####################################################################################################
 
+#If domain already has certificate issued, copy to local dir as cert.pem & key.pem
+#If not, will attempt to generate with letsencrypt later
+echo "Checking for existing SSL cert..."
+if [ ! -s "secrets/cert.pem" ] || [ ! -s "secrets/key.pem" ];
+then
+  echo " - Certs not found, generating once pod running"
+else
+  #(files exist and length > 0)
+  echo " - Certs found, applying as ssl-secret.yaml for webapp"
+  SSL_KEY_B64=$(base64 --wrap=0 secrets/key.pem)
+  SSL_CERT_B64=$(base64 --wrap=0 secrets/cert.pem)
+  apply_template ssl-secret.yaml
+
+fi;
+
 #Deploy the server WebODM instance
 apply_template db-service.yaml
 apply_template db-deployment.yaml
@@ -620,6 +635,8 @@ else
 
   if [ ! -z ${FIXED_IP} ];
   then
+    echo "*** DEPRECATED - THIS SHOULD NOT BE REACHED!"
+    return 1; 
     echo "Applying reserved floating ip"
     #Setup our reserved IP to point to the load-balancer service
     openstack floating ip set --port $PORT_ID --fixed-ip-address=$FIXED_IP $FIP_ID
@@ -629,6 +646,7 @@ else
     ping $WEBAPP_HOST -c 1
 
     echo "NOTE: must clear port of this floating ip before deleting services - or will be destroyed... use: ./asdc_update.sh ip"
+    # ^^ Above is not true if service uses specific floating ip when created rather than replacing
 
     #Seems to work without writing this, but allows us to check the value on the service matches our floating IP
     kubectl patch svc webapp-service -p "{\"spec\": {\"loadBalancerIP\": \"${FLOATING_IP}\"}}"
@@ -664,15 +682,16 @@ then
   done;
   echo ""
 
-  #Kill nginx
-  kubectl exec webapp-worker -c webapp -- killall nginx
-
   #If domain already has certificate issued, copy to local dir as cert.pem & key.pem
   #If not, will attempt to generate with letsencrypt
   echo "Checking for existing SSL cert..."
+  #(file exists and length > 0)
   if [ ! -s "secrets/cert.pem" ] || [ ! -s "secrets/key.pem" ];
   then
     echo " - Not found, generating"
+    #Kill nginx
+    kubectl exec webapp-worker -c webapp -- killall nginx
+
     #Create cert
     kubectl exec webapp-worker -c webapp -- /bin/bash -c "WO_SSL_KEY='' /webodm/nginx/letsencrypt-autogen.sh"
 
@@ -681,15 +700,12 @@ then
     #(can't use kubectl cp for symlinks)
     kubectl exec --stdin --tty webapp-worker -c webapp -- cat /webodm/nginx/ssl/cert.pem > secrets/cert.pem
     kubectl exec --stdin --tty webapp-worker -c webapp -- cat /webodm/nginx/ssl/key.pem > secrets/key.pem
-  else
-    echo " - Found, copying to webapp"
-    #Copy in cert from local
-    kubectl cp secrets/cert.pem webapp-worker:/webodm/nginx/ssl/cert.pem -c webapp
-    kubectl cp secrets/key.pem webapp-worker:/webodm/nginx/ssl/key.pem -c webapp
+    chmod 600 secrets/*.pem
+
+    #Restart nginx
+    kubectl exec webapp-worker -c webapp -- nginx -c /webodm/nginx/nginx-ssl.conf
   fi;
 
-  #Restart nginx
-  kubectl exec webapp-worker -c webapp -- nginx -c /webodm/nginx/nginx-ssl.conf
 fi
 
 #Final URL

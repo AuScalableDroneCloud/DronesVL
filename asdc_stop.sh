@@ -16,7 +16,10 @@ then
 fi
 
 #Need to clear port on our floating ip or it will be deleted with the cluster
-./asdc_update.sh ip
+#./asdc_update.sh ip
+
+#Same for tusd service ip - deprecated
+#./asdc_update.sh ip tusd
 
 #Delete the cluster
 openstack coe cluster delete $CLUSTER

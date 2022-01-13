@@ -10,6 +10,15 @@ echo Running patch on $HOSTNAME
 #Files to copy from local WebODM
 FILELIST="
 nginx/nginx-ssl.conf.template
+auth0/urls.py
+auth0/utils.py
+auth0/views.py
+auth0/pipeline.py
+package.json
+requirements.txt
+webodm/settings.py
+webodm/urls.py
+app/models/task.py
 "
 
 #Run from the DronesVL repo base
@@ -34,8 +43,13 @@ if [ $HOSTNAME != 'webapp-worker' ]; then
   done
 
   #To install patch, kill and restart main processes in pod...
+  #kubectl exec --stdin --tty webapp-worker -c webapp -- killall webpack
   kubectl exec --stdin --tty webapp-worker -c webapp -- killall nginx
   kubectl exec --stdin --tty webapp-worker -c webapp -- killall gunicorn
+  #kubectl exec --stdin --tty webapp-worker -c webapp -- killall celery
+  kubectl exec --stdin --tty webapp-worker -c worker -- celery -A worker control shutdown
+  #kubectl exec --stdin --tty webapp-worker -c worker -- killall nginx
+  #kubectl exec --stdin --tty webapp-worker -c worker -- killall gunicorn
 
 else
 
@@ -43,10 +57,13 @@ else
   echo "ON WEBAPP"
   mkdir -p /webodm/app/media/patch/
   cd /webodm/app/media/patch/
+  mkdir /webodm/auth0 #Missing dir
   for f in $FILELIST
   do
     echo "Installing patch file: $f..."
     cp "$f" "/webodm/$f"
   done
+  cd /webodm
+  pip install -r requirements.txt
 fi
 

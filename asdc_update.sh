@@ -24,6 +24,11 @@
 # It is intended to add further options for other components
 ####################################################################################################
 
+if [[ ${BASH_SOURCE[0]} != $0 ]]; then
+   printf "script '%s' is sourced in\n" "${BASH_SOURCE[0]}"
+   return
+fi
+
 #Load the settings, setup openstack and kubectl
 source settings.env
 
@@ -46,6 +51,14 @@ then
 
   echo "webapp-worker deleted successfully, running asdc_run.sh to re-create and initialise the webapp pod..."
   source asdc_run.sh
+
+elif [ "$1" = "tusd" ];
+then
+  helm uninstall tusd
+  echo "tusd deleted successfully, re-installing..."
+  kubectl apply -f uppy/s3-secret.yaml
+  kubectl apply -f uppy/tusd-pvc.yaml
+  helm install tusd --wait -f uppy/tusd-values.yaml skm/tusd
 
 elif [ "$1" = "web-storage-resize" ];
 then
@@ -96,27 +109,6 @@ then
 
   echo "running asdc_run.sh to re-create and initialise the webapp pod..."
   source asdc_run.sh
-
-elif [ $1 = "ip" ];
-then
-  #Need to clear port on our floating ip or it will be deleted with the cluster
-  FLOATING_IP=$(openstack floating ip list --tags ${WEBAPP_HOST} -c 'Floating IP Address' -f value)
-  FIP_ID=$(openstack floating ip list --floating-ip-address $FLOATING_IP -c ID -f value)
-  openstack floating ip unset --port $FIP_ID
-
-  openstack floating ip list
-
-  #Ensure the floating-ip is no longer assigned to our fixed ip
-  #WARNING: if above fails, and this runs, ip will be destroyed, so check, or do this manually...
-  FIXED_IP=$(openstack floating ip list --floating-ip-address $FLOATING_IP -c 'Fixed IP Address' -f value)
-  if [ ${FIXED_IP} == "None" ];
-  then
-    echo "Can now delete webapp-service, floating ip has been directed to: " ${FIXED_IP}
-    #Just delete it, as once the ip is disassociated it's easier to just re-create than patch the service again
-    kubectl delete service webapp-service
-  else
-    echo "WARNING: a service still appears to be attached to floating ip, DO NOT DELETE " ${FIXED_IP}
-  fi
 
 fi
 

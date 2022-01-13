@@ -14,6 +14,22 @@ spec:
   - name: webapp-claim0
     persistentVolumeClaim:
       claimName: webapp-claim0
+  - name: nginx-ssl
+    secret:
+      secretName: nginx-ssl
+
+  #Wait for the services to start
+  initContainers:
+  - name: init-webapp
+    image: ghcr.io/auscalabledronecloud/asdc-webodm:latest
+    command: ['bash', '-c']
+    args:
+      - chmod +x /webodm/*.sh;
+        /webodm/wait-for-postgres.sh db;
+        /webodm/wait-for-it.sh -t 0 broker:6379;
+        /webodm/wait-for-it.sh -t 0 tusd:80;
+        /webodm/wait-for-it.sh -t 0 cesium:8080;
+        echo "SERVICES READY";
 
   containers:
   #WebODM app
@@ -24,12 +40,19 @@ spec:
     #- Added loop to apply patches and restart if main gunicorn process is killed 
     command: ["/bin/bash", "-c"]
     args:
-      - chmod +x /webodm/*.sh;
-        apt-get update -qq;
+      - apt-get update -qq;
         apt-get install -y -qq psmisc curl vim nmap;
-        /webodm/wait-for-postgres.sh db /webodm/wait-for-it.sh -t 0 broker:6379 -- /webodm/wait-for-it.sh -t 0 tusd:80 -- /webodm/wait-for-it.sh -t 0 cesium:8080 -- echo "SERVICES READY";
+        cd /webodm/nginx/ssl;
+        ln -s certs/cert.pem;
+        ln -s certs/key.pem;
+        if [ ! -s "/webodm/nginx/ssl/cert.pem" ];
+        then echo "~~~~~~~~~~~~~~~~~~~~~~ GENERATING TEMPORARY CERTS ~~~~~~~~~~~~~~~~~~~~~~";
+        rm cert.pem;
+        rm key.pem;
+        openssl req -x509 -newkey rsa:4096 -sha256 -days 365 -nodes -keyout key.pem -out cert.pem -subj "/CN=${WEBAPP_HOST}";
+        fi;
+        cd -;
         echo "Waiting for" ${WEBAPP_HOST};
-        /webodm/app/media/patch/apply.sh;
         while :;
         do
           printf '.';
@@ -37,14 +60,10 @@ spec:
           RES=$?;
           if [[ "$RES" != '124' ]]; then break; fi;
         done;
-        mkdir -p /webodm/nginx/ssl;
-        if [ ! -s "/webodm/nginx/ssl/cert.pem" ];
-        then openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes -keyout /webodm/nginx/ssl/key.pem -out /webodm/nginx/ssl/cert.pem -subj "/CN=${WEBAPP_HOST}";
-        fi;
         while :;
         do
-          /webodm/start.sh;
           /webodm/app/media/patch/apply.sh;
+          /webodm/start.sh;
         done;
     env:
     - name: WO_DEBUG
@@ -80,10 +99,19 @@ spec:
       containerPort: 8080
     - name: 'https'
       containerPort: 8000
+    livenessProbe:
+      exec:
+        command:
+          - ls
+          - /webodm/app/media
+      failureThreshold: 5
+      periodSeconds: 30
     resources: {}
     volumeMounts:
     - mountPath: /webodm/app/media
       name: webapp-claim0
+    - mountPath: "/webodm/nginx/ssl/certs"
+      name: nginx-ssl
 
   #WebODM worker
   - name: worker
@@ -91,10 +119,13 @@ spec:
     args:
       - apt-get update -qq;
         apt-get install -y -qq psmisc curl vim nmap;
-        /webodm/wait-for-postgres.sh db /webodm/wait-for-it.sh -t 0 broker:6379
-        -- /webodm/wait-for-it.sh -t 0 localhost:8000 -- echo "SERVICES READY";
-        /webodm/worker.sh start;
-        #cd /webodm/app/media/WebODM/; git ls-files | xargs -I '{}' cp '{}' /webodm/'{}'; cd -;
+        /webodm/wait-for-it.sh -t 0 localhost:8000 -- echo "WEBAPP READY";
+        while :;
+        do
+          /webodm/app/media/patch/apply.sh;
+          /webodm/worker.sh start;
+          echo "RESTARTING WORKERS";
+        done;
       #When using worker in same pod as webapp, need to use localhost:8000 above
       #-- /webodm/wait-for-it.sh -t 0 webapp:8000 -- /webodm/worker.sh start
     env:
