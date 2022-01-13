@@ -515,6 +515,37 @@ do
   deploy_metashape $n
 done
 
+# ####################################################################################################
+# echo --- Phase 2f : Deployment: Flux (Jupyterhub, cesium) - Prepare configmaps and secrets for flux
+# ####################################################################################################
+
+# Base64 encoding for k8s secrets
+export ASDC_SECRETS_BASE64=$(cat templates/asdc-secrets.tpl.yaml | envsubst | base64 -w 0)
+
+apply_template jupyterhub-configmap.yaml
+apply_template jupyterhub-secret.yaml
+
+# Bootstrap flux.
+#(Requires github personal access token with repo rights in GITHUB_TOKEN)
+
+# Installs flux if it's not already present, using the configured live repo. This is idempotent.
+flux bootstrap ${FLUX_LIVE_REPO_TYPE} --owner=${FLUX_LIVE_REPO_OWNER} --repository=${FLUX_LIVE_REPO} --team=${FLUX_LIVE_REPO_TEAM} --path=${FLUX_LIVE_REPO_PATH}
+
+#Check
+#kubectl -n jupyterhub describe hr jupyterhub
+#Delete
+#kubectl -n jupyterhub delete hr jupyterhub
+
+#See/Suspend/resume
+#flux get helmreleases -n jupyterhub
+#flux suspend helmrelease jupyterhub -n jupyterhub
+#flux resume helmrelease jupyterhub -n jupyterhub
+
+#BUG: autohttps / proxy pods seem to fail to get letsencrypt cert on first boot, need to delete and let them run again
+
+#Info...
+#flux get all
+
 ####################################################################################################
 echo --- Phase 3a : Configuration: Floating IP
 ####################################################################################################
@@ -754,31 +785,4 @@ then
   kubectl exec clusterodm -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080"
 fi
 
-# ####################################################################################################
-# echo --- Phase 4b : Apps: Jupyterhub - Prepare configmaps and secrets for flux
-# ####################################################################################################
-
-# Base64 encoding for k8s secrets
-export ASDC_SECRETS_BASE64=$(cat templates/asdc-secrets.tpl.yaml | envsubst | base64 -w 0)
-
-apply_template jupyterhub-configmap.yaml
-apply_template jupyterhub-secret.yaml
-
-# Bootstrap flux.
-#(Requires github personal access token with repo rights in GITHUB_TOKEN)
-
-# Installs flux if it's not already present, using the configured live repo. This is idempotent.
-flux bootstrap ${FLUX_LIVE_REPO_TYPE} --owner=${FLUX_LIVE_REPO_OWNER} --repository=${FLUX_LIVE_REPO} --team=${FLUX_LIVE_REPO_TEAM} --path=${FLUX_LIVE_REPO_PATH}
-
-#Check
-#kubectl -n jupyterhub describe hr jupyterhub
-#Delete
-#kubectl -n jupyterhub delete hr jupyterhub
-
-#See/Suspend/resume
-#flux get helmreleases -n jupyterhub
-#flux suspend helmrelease jupyterhub -n jupyterhub
-#flux resume helmrelease jupyterhub -n jupyterhub
-
-#BUG: autohttps / proxy pods seem to fail to get letsencrypt cert on first boot, need to delete and let them run again
 
