@@ -24,6 +24,7 @@ data:
         Authenticator:
           admin_users:
             - ${JHUB_ADMIN_USER}
+          enable_auth_state: true #Test
           auto_login: true
         JupyterHub:
           authenticator_class: auth0
