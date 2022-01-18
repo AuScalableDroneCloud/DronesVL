@@ -727,9 +727,6 @@ echo --- Phase 6b : Configuration: SSL
 #By default, webodm will attempt to setup SSL when enabled and no cert or key passed
 #This does not seem to work through the loadbalancer, so initially we create a self signed cert
 #Then manually run letsencrypt-autogen.sh after up and running
-#TODO: handle renew when using letsencrypt/certbot?
-# - run certbot renew
-# - copy updated certs to local backup
 
 #Is SSL up and working yet?
 if ! curl https://${WEBAPP_HOST};
