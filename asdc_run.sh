@@ -311,14 +311,15 @@ echo "Checking for existing SSL cert..."
 if [ ! -s "secrets/cert.pem" ] || [ ! -s "secrets/key.pem" ];
 then
   echo " - Certs not found, generating once pod running"
+  SSL_KEY_B64='""'
+  SSL_CERT_B64='""'
 else
   #(files exist and length > 0)
   echo " - Certs found, applying as ssl-secret.yaml for webapp"
   SSL_KEY_B64=$(base64 --wrap=0 secrets/key.pem)
   SSL_CERT_B64=$(base64 --wrap=0 secrets/cert.pem)
-  apply_template ssl-secret.yaml
-
 fi;
+apply_template ssl-secret.yaml
 
 #Deploy the server WebODM instance
 apply_template db-service.yaml
