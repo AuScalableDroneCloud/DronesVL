@@ -258,15 +258,13 @@ export DB_VOLUME_ID=$VOL_ID
 
 #Apply the storage IDs to the persistent volumes and volume sizes to volumes/claims
 if [ "$WEB_VOLUME_ID" ]; then
-  apply_template webapp-persistentvolume.yaml
-  apply_template webapp-persistentvolumeclaim.yaml
+  apply_template webapp-volume.yaml
 else
   echo "WEB_VOLUME_ID not set, aborting!"
   return 1
 fi
 if [ "$DB_VOLUME_ID" ]; then
-  apply_template dbdata-persistentvolume.yaml
-  apply_template dbdata-persistentvolumeclaim.yaml
+  apply_template db-volume.yaml
 else
   echo "DB_VOLUME_ID not set, aborting!"
   return 1

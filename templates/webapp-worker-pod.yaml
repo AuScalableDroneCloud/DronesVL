@@ -11,9 +11,9 @@ spec:
 
   #Volume will be shared by both containers
   volumes:
-  - name: webapp-claim0
+  - name: webapp-data
     persistentVolumeClaim:
-      claimName: webapp-claim0
+      claimName: webapp-pvc
   - name: nginx-ssl
     secret:
       secretName: nginx-ssl
@@ -109,7 +109,7 @@ spec:
     resources: {}
     volumeMounts:
     - mountPath: /webodm/app/media
-      name: webapp-claim0
+      name: webapp-data
     - mountPath: "/webodm/nginx/ssl/certs"
       name: nginx-ssl
 
@@ -140,5 +140,5 @@ spec:
     resources: {}
     volumeMounts:
     - mountPath: /webodm/app/media
-      name: webapp-claim0
+      name: webapp-data
 
