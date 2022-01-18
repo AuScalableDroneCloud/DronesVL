@@ -27,6 +27,13 @@ spec:
         - mountPath: /var/lib/postgresql/data
           name: dbdata
           subPath: postgres
+        livenessProbe:
+          exec:
+            command:
+              - ls
+              - /var/lib/postgresql/data
+          failureThreshold: 5
+          periodSeconds: 30
       restartPolicy: Always
       serviceAccountName: ""
       volumes:
