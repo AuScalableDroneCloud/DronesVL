@@ -28,3 +28,15 @@ data:
           auto_login: true
         JupyterHub:
           authenticator_class: auth0
+    #Require taint on node to schedule pod (default is prefer)
+    #https://zero-to-jupyterhub.readthedocs.io/en/latest/administrator/optimization.html
+    scheduling:
+      userPods:
+        nodeAffinity:
+          # matchNodePurpose valid options:
+          # - ignore
+          # - prefer (the default)
+          # - require
+          #matchNodePurpose: require
+          matchNodePurpose: prefer
+
