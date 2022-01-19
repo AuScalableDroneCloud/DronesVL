@@ -28,6 +28,11 @@ data:
           auto_login: true
         JupyterHub:
           authenticator_class: auth0
+      #Allow running on compute nodes
+      tolerations:
+      - key: "compute"
+        operator: "Exists"
+        effect: "NoSchedule"
     #Require taint on node to schedule pod (default is prefer)
     #https://zero-to-jupyterhub.readthedocs.io/en/latest/administrator/optimization.html
     scheduling:
