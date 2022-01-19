@@ -1,3 +1,4 @@
+#See: https://github.com/jupyterhub/zero-to-jupyterhub-k8s/blob/main/jupyterhub/values.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -15,7 +16,6 @@ data:
       service:
         loadBalancerIP: ${JHUB_LOADBALANCER_IP}
     hub:
-      public_host: ${JHUB_HOST}
       config:
         Auth0OAuthenticator:
           oauth_callback_url: https://${JHUB_HOST}/hub/oauth_callback
