@@ -374,7 +374,7 @@ flux bootstrap ${FLUX_LIVE_REPO_TYPE} --owner=${FLUX_LIVE_REPO_OWNER} --reposito
 #flux get all
 
 ####################################################################################################
-echo --- Phase 4a : GPU cluster node taints
+echo --- Phase 4a : Cluster node taints
 ####################################################################################################
 
 #Wait until nodegroup complete
@@ -391,6 +391,12 @@ for node in $(kubectl get nodes -l magnum.openstack.org/role=cluster -ojsonpath=
 do 
   #kubectl get pods -A -owide --field-selector spec.nodeName=$node;
   kubectl taint nodes $node compute=true:NoSchedule
+
+  #Use the compute nodes for jupyterhub pods
+  #https://zero-to-jupyterhub.readthedocs.io/en/latest/administrator/optimization.html
+  kubectl label nodes $node hub.jupyter.org/node-purpose=user
+  #Use PreferNoSchedule so pods other than jupyterhub will still run on these nodes if they tolerate compute=true
+  kubectl taint nodes $node hub.jupyter.org/dedicated=user:PreferNoSchedule
 done
 
 ####################################################################################################
