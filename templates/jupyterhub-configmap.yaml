@@ -44,4 +44,7 @@ data:
           # - require
           #matchNodePurpose: require
           matchNodePurpose: prefer
+    singleuser:
+      extraEnv:
+        JUPYTERHUB_URL: "https://${JHUB_HOST}"
 
