@@ -29,9 +29,9 @@ data:
         JupyterHub:
           authenticator_class: auth0
 
-    #Custom environment variables
     singleuser:
-      defaultUrl: "/tree"
+      defaultUrl: "/lab"
+      #Custom environment variables
       extraEnv:
         JUPYTERHUB_URL: "https://${JHUB_HOST}"
         JUPYTER_OAUTH2_API_AUDIENCE: "https://${WEBAPP_HOST}/api"
