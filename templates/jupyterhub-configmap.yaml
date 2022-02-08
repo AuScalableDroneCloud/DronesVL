@@ -28,23 +28,14 @@ data:
           auto_login: true
         JupyterHub:
           authenticator_class: auth0
-      #Allow running on compute nodes
-      tolerations:
-      - key: "compute"
-        operator: "Exists"
-        effect: "NoSchedule"
-    #Require taint on node to schedule pod (default is prefer)
-    #https://zero-to-jupyterhub.readthedocs.io/en/latest/administrator/optimization.html
-    scheduling:
-      userPods:
-        nodeAffinity:
-          # matchNodePurpose valid options:
-          # - ignore
-          # - prefer (the default)
-          # - require
-          #matchNodePurpose: require
-          matchNodePurpose: prefer
+
+    #Custom environment variables
     singleuser:
+      defaultUrl: "/tree"
       extraEnv:
         JUPYTERHUB_URL: "https://${JHUB_HOST}"
+        JUPYTER_OAUTH2_API_AUDIENCE: "https://${WEBAPP_HOST}/api"
+        JUPYTER_OAUTH2_CLIENT_ID: "${WO_AUTH0_KEY}"
+        JUPYTER_OAUTH2_SCOPE: "openid profile email"
+        JUPYTER_OAUTH2_AUTH_PROVIDER_URL: "https://${WO_AUTH0_SUBDOMAIN}.auth0.com"
 
