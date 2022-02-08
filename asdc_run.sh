@@ -356,7 +356,8 @@ apply_template jupyterhub-secret.yaml
 #(Requires github personal access token with repo rights in GITHUB_TOKEN)
 
 # Installs flux if it's not already present, using the configured live repo. This is idempotent.
-flux bootstrap ${FLUX_LIVE_REPO_TYPE} --owner=${FLUX_LIVE_REPO_OWNER} --repository=${FLUX_LIVE_REPO} --team=${FLUX_LIVE_REPO_TEAM} --path=${FLUX_LIVE_REPO_PATH}
+#(OK: Adding image automation features: https://fluxcd.io/docs/guides/image-update/#configure-image-scanning)
+flux bootstrap ${FLUX_LIVE_REPO_TYPE} --owner=${FLUX_LIVE_REPO_OWNER} --repository=${FLUX_LIVE_REPO} --team=${FLUX_LIVE_REPO_TEAM} --path=${FLUX_LIVE_REPO_PATH} --read-write-key --components-extra=image-reflector-controller,image-automation-controller
 
 #Check
 #kubectl -n jupyterhub describe hr jupyterhub
