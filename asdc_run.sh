@@ -351,6 +351,7 @@ export ASDC_SECRETS_BASE64=$(cat templates/asdc-secrets.tpl.yaml | envsubst | ba
 
 apply_template jupyterhub-configmap.yaml
 apply_template jupyterhub-secret.yaml
+apply_template cesium-s3-secret.yaml
 
 # Bootstrap flux.
 #(Requires github personal access token with repo rights in GITHUB_TOKEN)
