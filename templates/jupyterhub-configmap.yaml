@@ -38,4 +38,14 @@ data:
         JUPYTER_OAUTH2_CLIENT_ID: "${WO_AUTH0_KEY}"
         JUPYTER_OAUTH2_SCOPE: "openid profile email"
         JUPYTER_OAUTH2_AUTH_PROVIDER_URL: "https://${WO_AUTH0_SUBDOMAIN}.auth0.com"
+      extraFiles:
+        envtest:
+          # mountPath is required and must be the absolute file path.
+          mountPath: /home/jovyan/envtest
+          stringData: |
+            JUPYTERHUB_URL: "https://${JHUB_HOST}"
+            JUPYTER_OAUTH2_API_AUDIENCE: "https://${WEBAPP_HOST}/api"
+            JUPYTER_OAUTH2_CLIENT_ID: "${WO_AUTH0_KEY}"
+            JUPYTER_OAUTH2_SCOPE: "openid profile email"
+            JUPYTER_OAUTH2_AUTH_PROVIDER_URL: "https://${WO_AUTH0_SUBDOMAIN}.auth0.com"
 
