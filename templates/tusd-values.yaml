@@ -44,22 +44,22 @@ containerArgs:
 
 service:
   # -- Kubernetes [service type](https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types).
-  #type: ClusterIP
-  type: LoadBalancer
-
+  type: ClusterIP
+  #Using our own nginx reverse proxy so don't need this
+  #type: LoadBalancer
   # -- (string) Only applies when the service type is LoadBalancer. Load balancer will get created with the IP specified in this field.
-  loadBalancerIP: ${TUSD_IP}
+  #loadBalancerIP: ${TUSD_IP}
 
-ingress:
+#ingress:
   # -- Enable [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/).
-  enabled: true
+#  enabled: true
 
   # -- Ingress host configuration.
   # @default -- See [values.yaml](values.yaml).
-  hosts:
-    - host: ${TUSD_HOST}
-      paths:
-        - path: /
-          pathType: ImplementationSpecific
+#  hosts:
+#    - host: ${TUSD_HOST}
+#      paths:
+#        - path: /
+#          pathType: ImplementationSpecific
 
 
