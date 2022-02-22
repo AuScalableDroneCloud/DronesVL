@@ -1,0 +1,21 @@
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: jupyterhub
+  labels:
+    name: jupyterhub
+---
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: botkube
+  labels:
+    name: botkube
+---
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: nvidia-gpu
+  labels:
+    name: nvidia-gpu
+---
