@@ -174,13 +174,6 @@ then
   fi
   '
 
-  #Setup node groups
-  # https://docs.openstack.org/magnum/latest/user/#node-groups
-  #(Will error if already created so ok to run again without check)
-  openstack coe nodegroup create $CLUSTER cluster-nodes --flavor $CLUSTER_FLAVOUR --min-nodes $NODES --node-count $NODES --role cluster
-  #Second cluster group? (once more hardware available)
-  #openstack coe nodegroup create $CLUSTER cluster2-nodes --flavor $CLUSTER2_FLAVOUR --min-nodes $NODES --node-count $NODES --role cluster
-
   #Create the config
   openstack coe cluster config $CLUSTER
   mv config ${KUBECONFIG}
@@ -204,6 +197,19 @@ else
     return 1;
   fi
 fi;
+
+#Setup node groups
+NODEGROUP_CREATED=0
+if ! openstack coe nodegroup show $CLUSTER cluster-nodes -f value -c status;
+then
+  echo "Cluster nodegroup doesn't exist, creating"
+  # https://docs.openstack.org/magnum/latest/user/#node-groups
+  #(Will error if already created so ok to run again without check)
+  openstack coe nodegroup create $CLUSTER cluster-nodes --flavor $CLUSTER_FLAVOUR --min-nodes $NODES --node-count $NODES --role cluster 
+  NODEGROUP_CREATED=1
+fi
+#Second cluster group? (once more hardware available)
+#openstack coe nodegroup create $CLUSTER cluster2-nodes --flavor $CLUSTER2_FLAVOUR --min-nodes $NODES --node-count $NODES --role cluster
 
 #kubectl get all
 #kubectl get all --all-namespaces
@@ -386,20 +392,26 @@ do
   sleep 2
 done
 
-# All gpu cluster nodes need to be tainted to prevent other pods running on them!
-#kubectl taint nodes $NODE key1=value1:NoSchedule
-#kubectl taint nodes $NODE compute=compute-jobs-only:NoSchedule
-for node in $(kubectl get nodes -l magnum.openstack.org/role=cluster -ojsonpath='{.items[*].metadata.name}'); 
-do 
-  #kubectl get pods -A -owide --field-selector spec.nodeName=$node;
-  kubectl taint nodes $node compute=true:NoSchedule
+#Need to re-create flannel pods after nodegroup created
+if [ $NODEGROUP_CREATED == 1 ];
+then
+  kubectl -n kube-system delete pod -l app=flannel
 
-  #Use the compute nodes for jupyterhub pods
-  #https://zero-to-jupyterhub.readthedocs.io/en/latest/administrator/optimization.html
-  kubectl label nodes $node hub.jupyter.org/node-purpose=user
-  #Use PreferNoSchedule so pods other than jupyterhub will still run on these nodes if they tolerate compute=true
-  kubectl taint nodes $node hub.jupyter.org/dedicated=user:PreferNoSchedule
-done
+  # All gpu cluster nodes need to be tainted to prevent other pods running on them!
+  #kubectl taint nodes $NODE key1=value1:NoSchedule
+  #kubectl taint nodes $NODE compute=compute-jobs-only:NoSchedule
+  for node in $(kubectl get nodes -l magnum.openstack.org/role=cluster -ojsonpath='{.items[*].metadata.name}'); 
+  do 
+    #kubectl get pods -A -owide --field-selector spec.nodeName=$node;
+    kubectl taint nodes $node compute=true:NoSchedule
+
+    #Use the compute nodes for jupyterhub pods
+    #https://zero-to-jupyterhub.readthedocs.io/en/latest/administrator/optimization.html
+    kubectl label nodes $node hub.jupyter.org/node-purpose=user
+    #Use PreferNoSchedule so pods other than jupyterhub will still run on these nodes if they tolerate compute=true
+    kubectl taint nodes $node hub.jupyter.org/dedicated=user:PreferNoSchedule
+  done
+fi
 
 ####################################################################################################
 echo --- Phase 4b : NVidia GPU Setup
