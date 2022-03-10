@@ -41,7 +41,7 @@ spec:
     command: ["/bin/bash", "-c"]
     args:
       - apt-get update -qq;
-        apt-get install -y -qq psmisc curl vim nmap;
+        apt-get install -y -qq psmisc curl vim nmap netcat iputils-ping;
         cd /webodm/nginx/ssl;
         ln -s certs/cert.pem;
         ln -s certs/key.pem;

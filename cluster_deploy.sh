@@ -76,112 +76,41 @@ NVIDIA_DRIVER=460.32.03
 # Enabling PodSecurityPolicies to fix crash in cuda-validator "PodSecurityPolicy: unable to admit pod"
 #helm install gpu-operator --devel nvidia/gpu-operator --set driver.repository=ghcr.io/auscalabledronecloud,driver.version=$NVIDIA_DRIVER,psp.enabled=true --wait
 
-#TODO: re-enable this, but leaving commented for now as addition of namespace might confuse things until next cluster restart
 subst_template gpu-operator-values.yaml
 helm install gpu-operator --devel --namespace nvidia-gpu --wait -f yaml/gpu-operator-values.yaml nvidia/gpu-operator
 
 ####################################################################################################
-echo --- Phase 4c : Deployment: NodeODM
+echo --- Phase 4c : Deployment: NodeODM, ClusterODM
 ####################################################################################################
-
 #Deploy processing nodes
-function deploy_node()
-{
-  #Deploy NodeODM pod using name and volume ID
-  #$1 = id#, $2 = type, $3 = image, $4 = port, $5 = gpus, $6 = optional args
-  export NODE_NAME=$1
-  export NODE_VOLUME_NAME=$1-storage
-  export NODE_TYPE=$2
-  export NODE_IMAGE=$3
-  export NODE_PORT=$4
-  export NODE_GPUS=$5
-  export NODE_ARGS=$6
-  if ! kubectl get pods | grep $NODE_NAME
-  then
-    echo ">>> NODE LAUNCH... " $NODE_NAME $NODE_PORT $NODE_IMAGE $NODE_TYPE $NODE_VOLUME_NAME $NODE_ARGS
-    echo "Deploying $3 : $4 as $NODE_NAME"
-    apply_template nodeodm.yaml
-    apply_template node-pvc.yaml
-    apply_template nodeodm-service.yaml
-  fi
-}
 
 #Deploy clusterODM
-export NODE_VOLUME_SIZE=1 #No volume storage necessary, so set as minimum
-deploy_node clusterodm clusterodm opendronemap/clusterodm 3000 0 '["--public-address", "http://clusterodm:3000"]'
+apply_template clusterodm.yaml 
+
+#Get content of the setup script
+export NODE_SETUP_SCRIPT_CONTENT=$(cat node_setup.sh | sed 's/\(.*\)/    \1/')
 
 #Deploy NodeODM nodes
+export NODE_COUNT=2
+export NODE_TYPE=nodeodm
+export NODE_IMAGE=opendronemap/nodeodm:gpu
+#export NODE_IMAGE=opendronemap/nodeodm
+export NODE_PORT=3000
+export NODE_GPUS=1
+export NODE_ARGS=${ODM_FLAGS_GPU}
+#export NODE_ARGS=${ODM_FLAGS}
 export NODE_VOLUME_SIZE=$NODE_VOLSIZE
-for (( n=1; n<=$NODE_ODM; n++ ))
-do
-  #First $NODE_ODM_GPU nodes are configured to use gpu
-  if [ "$n" -le "$NODE_ODM_GPU" ]; then 
-    #For GPU Nodes use gpu nodeodm image and set NODE_GPUS > 0
-    #(Note: we had to build our own image as public opendronemap/nodeodm:gpu doesn't seem to exist yet)
-    #https://github.com/OpenDroneMap/NodeODM#using-gpu-acceleration-for-sift-processing-inside-nodeodm
-    echo "Requesting CPU+GPU node"
-    deploy_node nodeodm$n nodeodm ghcr.io/auscalabledronecloud/asdc-nodeodm-gpu 3000 1 ${ODM_FLAGS_GPU}
-  else
-    echo "Requesting CPU only node"
-    deploy_node nodeodm$n nodeodm ghcr.io/auscalabledronecloud/asdc-nodeodm 3000 0 ${ODM_FLAGS}
-  fi
-done
+apply_template nodeodm-stateful.yaml
 
 #Deploy any additional nodes (MicMac)
-for (( n=$NODE_ODM+1; n<=$NODE_ODM+$NODE_MICMAC; n++ ))
-do
-  deploy_node nodemicmac$n nodemicmac dronemapper/node-micmac 3000 0
-done
-
-echo ${NODE_VOL_IDS[@]}
-# Iterate the loop to read and print each array element
-#for value in "${NODE_VOL_IDS[@]}"
-#do
-#  echo $value
-#done
-
-####################################################################################################
-echo --- Phase 4d : Apps: ClusterODM
-####################################################################################################
-
-# Need to add all the running NodeODM instances to ClusterODM list via telnet interface
-
-for (( n=1; n<=$NODE_ODM; n++ ))
-do
-  #Wait until node running
-  wait_for_pod nodeodm$n
-  #Fix the tmp path storage issue (writes to ./tmp in /var/www, need to use volume or fills ethemeral storage of docker image/node)
-  echo kubectl exec nodeodm$n -- bash -c "if ! [ -L /var/www/tmp ] ; then rmdir /var/www/tmp; mkdir /var/www/data/tmp; ln -s /var/www/data/tmp /var/www/tmp; fi"
-  kubectl exec nodeodm$n -- bash -c "if ! [ -L /var/www/tmp ] ; then rmdir /var/www/tmp; mkdir /var/www/data/tmp; ln -s /var/www/data/tmp /var/www/tmp; fi"
-done
-
-#Wait until clusterodm running
-wait_for_pod clusterodm
-
-#Get current list of running nodes
-CODM_LIST=$(kubectl exec clusterodm -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080")
-
-#Adding nodes to cluster via telnet interface - create the script
-CLUSTER_NODES='(sleep 1; '
-for (( n=1; n<=$NODE_ODM; n++ ))
-do
-  NODE_NAME=nodeodm$n
-  if ! echo "$CODM_LIST" | grep "$NODE_NAME";
-  then
-    CLUSTER_NODES+="echo 'NODE ADD $NODE_NAME 3000'; sleep 1;"
-  fi
-done
-CLUSTER_NODES+=') | telnet localhost 8080'
-
-#If no nodes need adding, can skip this
-if echo "$CLUSTER_NODES" | grep "node";
-then
-  #Exec command to set cluster nodes
-  #(TODO: a better way would be for each node to add itself to the cluster on spinning up)
-  echo $CLUSTER_NODES
-  kubectl exec clusterodm -- bash -c "$CLUSTER_NODES"
-  kubectl exec clusterodm -- bash -c "(sleep 1; echo 'NODE LIST'; sleep 1;) | telnet localhost 8080"
-fi
+#export NODE_COUNT=2
+#export NODE_TYPE=nodemicmac
+#export NODE_IMAGE=dronemapper/node-micmac
+#export NODE_PORT=3000
+#export NODE_GPUS=0
+#export NODE_ARGS=""
+#export NODE_VOLUME_SIZE=$NODE_VOLSIZE
+#apply_template nodeodm-stateful.yaml
 
 ####################################################################################################
 echo --- Phase 4e : Deployment: Metashape

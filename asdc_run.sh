@@ -199,24 +199,6 @@ apply_template namespaces.yaml
 echo --- Phase 2a : Deployment: Volumes and storage
 ####################################################################################################
 
-function subst_template()
-{
-  #Use envsubst to apply variables to template .yaml files
-  #$1 = filename.yaml
-
-  #Runs envsubst but skips vars not defined in env https://unix.stackexchange.com/a/492778/17168
-  cat templates/$1 | envsubst "$(env | cut -d= -f1 | sed -e 's/^/$/')" > yaml/$1
-  echo "Applied env to template: templates/$1 => yaml/$1"
-}
-
-function apply_template()
-{
-  #Substitute env vars
-  subst_template $1
-  #Apply to cluster
-  kubectl apply -f yaml/$1
-}
-
 ### Create persistent cinder volumes
 
 #Volume creation function

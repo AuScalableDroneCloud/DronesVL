@@ -1,52 +1,117 @@
-#Deployment of NodeODM / NodeMICMAC or other procesing nodes
-#NOTE: can't use replicas for deployment cluster size
-# as cinder volumes can not be shared and unique id must be specified
+#StatefulSet Deployment of NodeODM / NodeMICMAC or other procesing nodes
+
+#Headless service, required for statefulset
+#nodes available on {node-type}-{#}.{node-type}-svc
 apiVersion: v1
-kind: Pod
+kind: Service
 metadata:
-  name: ${NODE_NAME}
-  labels:
-    app: ${NODE_NAME}
-    type: ${NODE_TYPE}
+  creationTimestamp: null
+  name: ${NODE_TYPE}-svc
 spec:
-  containers:
-    - name: nodeodm
-      image: ${NODE_IMAGE}
-      args: ${NODE_ARGS}
-      volumeMounts:
-        - name: ${NODE_VOLUME_NAME}
+  ports:
+  - port: ${NODE_PORT}
+    targetPort: ${NODE_PORT}
+  selector:
+    app: ${NODE_TYPE}
+  clusterIP: None #Headless
+
+---
+#ConfigMap for script to register the node on ClusterODM
+#(also fixes the ./tmp location issue)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nodeodm-config-map
+  labels:
+    app: ${NODE_TYPE} 
+data:
+  setup.sh: |
+${NODE_SETUP_SCRIPT_CONTENT}
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ${NODE_TYPE}
+spec:
+  serviceName: "${NODE_TYPE}-svc"
+  replicas: ${NODE_COUNT}
+  selector:
+    matchLabels:
+      app: ${NODE_TYPE}
+  template:
+    metadata:
+      labels:
+        app: ${NODE_TYPE}
+    spec:
+      #NodeODM now runs as odm user
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+
+      containers:
+      - name: ${NODE_TYPE}
+        image: ${NODE_IMAGE}
+        command: ["/bin/bash", "-c"]
+        args:
+          - bash /var/www/setup.sh;
+            /usr/bin/node /var/www/index.js ${NODE_ARGS};
+        #args: ${NODE_ARGS}
+        ports:
+        - containerPort: ${NODE_PORT}
+          name: node
+        volumeMounts:
+        - name: ${NODE_TYPE}-storage
           mountPath: "/var/www/data"
-      # https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/
+        - name: setup
+          mountPath: /var/www/setup.sh
+          subPath: setup.sh
+
+        # https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/
+        resources:
+          limits:
+            nvidia.com/gpu: ${NODE_GPUS} # requesting GPUs
+
+      #ConfigMap containing setup.sh script
+      volumes:
+        - name: setup
+          configMap:
+            name: nodeodm-config-map
+            items:
+            - key: setup.sh
+              path: setup.sh
+
+      #Allow running on compute nodes
+      tolerations:
+      - key: "compute"
+        operator: "Exists"
+        effect: "NoSchedule"
+
+      #Use anti-affinity to prevent similar instances running on same k8s node
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "type"
+                    operator: In
+                    values:
+                    - ${NODE_TYPE}
+              topologyKey: "kubernetes.io/hostname"
+
+      # Zombie repellent
+      # https://www.back2code.me/2020/02/zombie-processes-back-in-k8s/
+      # https://stackoverflow.com/questions/50803268/kubernetes-equivalent-of-docker-run-init
+      shareProcessNamespace: true
+
+  volumeClaimTemplates:
+  - metadata:
+      name: ${NODE_TYPE}-storage
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
       resources:
-        limits:
-          nvidia.com/gpu: ${NODE_GPUS} # requesting GPUs
-
-  volumes:
-    - name: ${NODE_VOLUME_NAME}
-      persistentVolumeClaim:
-        claimName: ${NODE_NAME}-cinder-pvc
-        readOnly: false
-
-  #Allow running on compute nodes
-  tolerations:
-  - key: "compute"
-    operator: "Exists"
-    effect: "NoSchedule"
-
-  #Use anti-affinity to prevent similar instances running on same k8s node
-  affinity:
-    podAntiAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        - labelSelector:
-            matchExpressions:
-              - key: "type"
-                operator: In
-                values:
-                - ${NODE_TYPE}
-          topologyKey: "kubernetes.io/hostname"
-
-  # Zombie repellent
-  # https://www.back2code.me/2020/02/zombie-processes-back-in-k8s/
-  # https://stackoverflow.com/questions/50803268/kubernetes-equivalent-of-docker-run-init
-  shareProcessNamespace: true
+        requests:
+          storage: ${NODE_VOLUME_SIZE}Gi
+      storageClassName: csi-sc-cinderplugin
 
