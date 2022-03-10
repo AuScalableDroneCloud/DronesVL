@@ -90,8 +90,8 @@ apply_template clusterodm.yaml
 #Get content of the setup script
 export NODE_SETUP_SCRIPT_CONTENT=$(cat node_setup.sh | sed 's/\(.*\)/    \1/')
 
-#Deploy NodeODM nodes
-export NODE_COUNT=2
+#Deploy NodeODM nodes (all GPU now, if we need CPU only can be restored)
+export NODE_COUNT=$NODES
 export NODE_TYPE=nodeodm
 export NODE_IMAGE=opendronemap/nodeodm:gpu
 #export NODE_IMAGE=opendronemap/nodeodm
@@ -100,7 +100,7 @@ export NODE_GPUS=1
 export NODE_ARGS=${ODM_FLAGS_GPU}
 #export NODE_ARGS=${ODM_FLAGS}
 export NODE_VOLUME_SIZE=$NODE_VOLSIZE
-apply_template nodeodm-stateful.yaml
+apply_template nodeodm.yaml
 
 #Deploy any additional nodes (MicMac)
 #export NODE_COUNT=2
@@ -110,7 +110,7 @@ apply_template nodeodm-stateful.yaml
 #export NODE_GPUS=0
 #export NODE_ARGS=""
 #export NODE_VOLUME_SIZE=$NODE_VOLSIZE
-#apply_template nodeodm-stateful.yaml
+#apply_template nodeodm.yaml
 
 ####################################################################################################
 echo --- Phase 4e : Deployment: Metashape
