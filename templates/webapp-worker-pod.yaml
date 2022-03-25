@@ -1,144 +1,157 @@
-apiVersion: v1
-kind: Pod
-#Combined webapp and worker into a single pod to share a volume
+apiVersion: apps/v1
+kind: StatefulSet
 metadata:
   labels:
-    app: webapp
+    app: webapp-worker
   name: webapp-worker
 spec:
-  restartPolicy: Always
-  serviceAccountName: ""
+  serviceName: webapp-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webapp-worker
 
-  #Volume will be shared by both containers
-  volumes:
-  - name: webapp-data
-    persistentVolumeClaim:
-      claimName: webapp-pvc
-  - name: nginx-ssl
-    secret:
-      secretName: nginx-ssl
+  template:
+    metadata:
+      labels:
+        app: webapp-worker
+    spec:
+      #TODO: run as user not root
+      #securityContext:
+      #  runAsUser: 1000
+      #  runAsGroup: 1000
+      #  fsGroup: 1000
 
-  #Wait for the services to start
-  initContainers:
-  - name: init-webapp
-    image: ghcr.io/auscalabledronecloud/asdc-webodm:latest
-    command: ['bash', '-c']
-    args:
-      - chmod +x /webodm/*.sh;
-        /webodm/wait-for-postgres.sh db;
-        /webodm/wait-for-it.sh -t 0 broker:6379;
-        /webodm/wait-for-it.sh -t 0 tusd:80;
-        /webodm/wait-for-it.sh -t 0 cesium:8080;
-        echo "SERVICES READY";
+      #Volume will be shared by both containers
+      volumes:
+      - name: webapp-data
+        persistentVolumeClaim:
+          claimName: webapp-pvc
+      - name: nginx-ssl
+        secret:
+          secretName: nginx-ssl
 
-  containers:
-  #WebODM app
-  - name: webapp-container
-    #- Added loop to wait for hostname to respond to ping, we need to wait for the service to come up and the load-balancer IP to be changed
-    #to allow SSL before running start.sh
-    #- Added patch/apply.sh to copy in selected patched files
-    #- Added loop to apply patches and restart if main gunicorn process is killed 
-    command: ["/bin/bash", "-c"]
-    args:
-      - apt-get update -qq;
-        apt-get install -y -qq psmisc curl vim nmap netcat iputils-ping;
-        cd /webodm/nginx/ssl;
-        ln -s certs/cert.pem;
-        ln -s certs/key.pem;
-        if [ ! -s "/webodm/nginx/ssl/cert.pem" ];
-        then echo "~~~~~~~~~~~~~~~~~~~~~~ GENERATING TEMPORARY CERTS ~~~~~~~~~~~~~~~~~~~~~~";
-        rm cert.pem;
-        rm key.pem;
-        openssl req -x509 -newkey rsa:4096 -sha256 -days 365 -nodes -keyout key.pem -out cert.pem -subj "/CN=${WEBAPP_HOST}";
-        fi;
-        cd -;
-        echo "Waiting for" ${WEBAPP_HOST};
-        while :;
-        do
-          printf '.';
-          timeout 5.0 curl -sL ${WEBAPP_HOST}:443 &> /dev/null;
-          RES=$?;
-          if [[ "$RES" != '124' ]]; then break; fi;
-        done;
-        while :;
-        do
-          /webodm/app/media/patch/apply.sh;
-          /webodm/start.sh;
-        done;
-    env:
-    - name: WO_DEBUG
-      value: "NO"
-    - name: WO_BROKER
-      value: "redis://broker"
-    - name: WO_SSL
-      value: "YES"
-    - name: WO_SSL_KEY
-      value: "/webodm/nginx/ssl/key.pem"
-    - name: WO_SSL_CERT
-      value: "/webodm/nginx/ssl/cert.pem"
-    - name: WO_HOST
-      value: "${WEBAPP_HOST}"
-    - name: WO_PORT
-      value: "443"
-    - name: WO_SSL_INSECURE_PORT_REDIRECT
-      value: "80"
-    - name: WO_AUTH0_DOMAIN
-      value: ${WO_AUTH0_DOMAIN}
-    - name: WO_AUTH0_KEY
-      value: ${WO_AUTH0_KEY}
-    - name: WO_AUTH0_SECRET
-      value: ${WO_AUTH0_SECRET}
-    - name: WO_ENCRYPTION_KEY
-      value: ${WO_ENCRYPTION_KEY}
-    #image: opendronemap/webodm_webapp
-    image: ghcr.io/auscalabledronecloud/asdc-webodm:latest
-    imagePullPolicy: ""
-    name: webapp
-    ports:
-    - name: 'http'
-      containerPort: 8080
-    - name: 'https'
-      containerPort: 8000
-    livenessProbe:
-      exec:
-        command:
-          - ls
-          - /webodm/app/media
-      failureThreshold: 5
-      periodSeconds: 30
-    resources: {}
-    volumeMounts:
-    - mountPath: /webodm/app/media
-      name: webapp-data
-    - mountPath: "/webodm/nginx/ssl/certs"
-      name: nginx-ssl
+      #Wait for the services to start
+      initContainers:
+      - name: init-webapp
+        image: ghcr.io/auscalabledronecloud/asdc-webodm:latest
+        command: ['bash', '-c']
+        args:
+          - chmod +x /webodm/*.sh;
+            /webodm/wait-for-postgres.sh db;
+            /webodm/wait-for-it.sh -t 0 broker:6379;
+            /webodm/wait-for-it.sh -t 0 tusd:80;
+            /webodm/wait-for-it.sh -t 0 cesium:8080;
+            echo "SERVICES READY";
 
-  #WebODM worker
-  - name: worker
-    command: ["/bin/bash", "-c"]
-    args:
-      - apt-get update -qq;
-        apt-get install -y -qq psmisc curl vim nmap;
-        /webodm/wait-for-it.sh -t 0 localhost:8000 -- echo "WEBAPP READY";
-        while :;
-        do
-          /webodm/app/media/patch/apply.sh;
-          /webodm/worker.sh start;
-          echo "RESTARTING WORKERS";
-        done;
-      #When using worker in same pod as webapp, need to use localhost:8000 above
-      #-- /webodm/wait-for-it.sh -t 0 webapp:8000 -- /webodm/worker.sh start
-    env:
-    - name: WO_BROKER
-      value: redis://broker
-    - name: WO_ENCRYPTION_KEY
-      value: ${WO_ENCRYPTION_KEY}
-    #image: opendronemap/webodm_webapp
-    image: ghcr.io/auscalabledronecloud/asdc-webodm:latest
-    imagePullPolicy: ""
-    name: worker
-    resources: {}
-    volumeMounts:
-    - mountPath: /webodm/app/media
-      name: webapp-data
+      containers:
+      #WebODM app
+      - name: webapp-container
+        #- Added loop to wait for hostname to respond to ping, we need to wait for the service to come up and the load-balancer IP to be changed
+        #to allow SSL before running start.sh
+        #- Added patch/apply.sh to copy in selected patched files
+        #- Added loop to apply patches and restart if main gunicorn process is killed 
+        command: ["/bin/bash", "-c"]
+        args:
+          - apt-get update -qq;
+            apt-get install -y -qq psmisc curl vim nmap netcat iputils-ping;
+            cd /webodm/nginx/ssl;
+            ln -s certs/cert.pem;
+            ln -s certs/key.pem;
+            if [ ! -s "/webodm/nginx/ssl/cert.pem" ];
+            then echo "~~~~~~~~~~~~~~~~~~~~~~ GENERATING TEMPORARY CERTS ~~~~~~~~~~~~~~~~~~~~~~";
+            rm cert.pem;
+            rm key.pem;
+            openssl req -x509 -newkey rsa:4096 -sha256 -days 365 -nodes -keyout key.pem -out cert.pem -subj "/CN=${WEBAPP_HOST}";
+            fi;
+            cd -;
+            echo "Waiting for" ${WEBAPP_HOST};
+            while :;
+            do
+              printf '.';
+              timeout 5.0 curl -sL ${WEBAPP_HOST}:443 &> /dev/null;
+              RES=$?;
+              if [[ "$RES" != '124' ]]; then break; fi;
+            done;
+            while :;
+            do
+              /webodm/app/media/patch/apply.sh;
+              /webodm/start.sh;
+            done;
+        env:
+        - name: WO_DEBUG
+          value: "NO"
+        - name: WO_BROKER
+          value: "redis://broker"
+        - name: WO_SSL
+          value: "YES"
+        - name: WO_SSL_KEY
+          value: "/webodm/nginx/ssl/key.pem"
+        - name: WO_SSL_CERT
+          value: "/webodm/nginx/ssl/cert.pem"
+        - name: WO_HOST
+          value: "${WEBAPP_HOST}"
+        - name: WO_PORT
+          value: "443"
+        - name: WO_SSL_INSECURE_PORT_REDIRECT
+          value: "80"
+        - name: WO_AUTH0_DOMAIN
+          value: ${WO_AUTH0_DOMAIN}
+        - name: WO_AUTH0_KEY
+          value: ${WO_AUTH0_KEY}
+        - name: WO_AUTH0_SECRET
+          value: ${WO_AUTH0_SECRET}
+        - name: WO_ENCRYPTION_KEY
+          value: ${WO_ENCRYPTION_KEY}
+        #image: opendronemap/webodm_webapp
+        image: ghcr.io/auscalabledronecloud/asdc-webodm:latest
+        imagePullPolicy: ""
+        name: webapp
+        ports:
+        - name: 'http'
+          containerPort: 8080
+        - name: 'https'
+          containerPort: 8000
+        livenessProbe:
+          exec:
+            command:
+              - ls
+              - /webodm/app/media
+          failureThreshold: 5
+          periodSeconds: 30
+        resources: {}
+        volumeMounts:
+        - name: webapp-data
+          mountPath: /webodm/app/media
+        - name: nginx-ssl
+          mountPath: "/webodm/nginx/ssl/certs"
+
+      #WebODM worker
+      - name: worker
+        command: ["/bin/bash", "-c"]
+        args:
+          - apt-get update -qq;
+            apt-get install -y -qq psmisc curl vim nmap;
+            /webodm/wait-for-it.sh -t 0 localhost:8000 -- echo "WEBAPP READY";
+            while :;
+            do
+              /webodm/app/media/patch/apply.sh;
+              /webodm/worker.sh start;
+              echo "RESTARTING WORKERS";
+            done;
+          #When using worker in same pod as webapp, need to use localhost:8000 above
+          #-- /webodm/wait-for-it.sh -t 0 webapp:8000 -- /webodm/worker.sh start
+        env:
+        - name: WO_BROKER
+          value: redis://broker
+        - name: WO_ENCRYPTION_KEY
+          value: ${WO_ENCRYPTION_KEY}
+        #image: opendronemap/webodm_webapp
+        image: ghcr.io/auscalabledronecloud/asdc-webodm:latest
+        imagePullPolicy: ""
+        name: worker
+        resources: {}
+        volumeMounts:
+        - name: webapp-data
+          mountPath: /webodm/app/media
 

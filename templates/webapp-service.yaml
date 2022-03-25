@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: webapp-service
   labels:
-    app: webapp-service
+    app: webapp-worker
 spec:
   ports:
   - name: "http"
@@ -17,5 +17,5 @@ spec:
   type: LoadBalancer
   loadBalancerIP: ${WEBAPP_IP}
   selector:
-    app: webapp
+    app: webapp-worker
 
