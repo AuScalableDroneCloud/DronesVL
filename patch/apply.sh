@@ -10,15 +10,19 @@ echo Running patch on $HOSTNAME
 #Files to copy from local WebODM
 FILELIST="
 nginx/nginx-ssl.conf.template
+nginx/proxy.conf
+nginx/letsencrypt-autogen.sh
 auth0/urls.py
 auth0/utils.py
 auth0/views.py
 auth0/pipeline.py
+auth0/middleware.py
 package.json
 requirements.txt
 webodm/settings.py
 webodm/urls.py
 app/models/task.py
+app/api/authentication.py
 "
 
 #Run from the DronesVL repo base
@@ -43,13 +47,15 @@ if [ $HOSTNAME != 'webapp-worker' ]; then
   done
 
   #To install patch, kill and restart main processes in pod...
+  #echo "Kill celery"
+  #kubectl exec --stdin --tty webapp-worker -c worker -- celery -A worker control shutdown
+
   #kubectl exec --stdin --tty webapp-worker -c webapp -- killall webpack
-  kubectl exec --stdin --tty webapp-worker -c webapp -- killall nginx
-  kubectl exec --stdin --tty webapp-worker -c webapp -- killall gunicorn
   #kubectl exec --stdin --tty webapp-worker -c webapp -- killall celery
-  kubectl exec --stdin --tty webapp-worker -c worker -- celery -A worker control shutdown
-  #kubectl exec --stdin --tty webapp-worker -c worker -- killall nginx
-  #kubectl exec --stdin --tty webapp-worker -c worker -- killall gunicorn
+  echo "Kill nginx"
+  kubectl exec --stdin --tty webapp-worker -c webapp -- killall nginx
+  echo "Kill gunicorn"
+  kubectl exec --stdin --tty webapp-worker -c webapp -- killall gunicorn
 
 else
 
