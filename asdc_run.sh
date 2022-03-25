@@ -342,13 +342,7 @@ flux bootstrap ${FLUX_LIVE_REPO_TYPE} --owner=${FLUX_LIVE_REPO_OWNER} --reposito
 #flux get all
 
 ####################################################################################################
-echo --- Phase 4 : Cluster config and GPU setup, deploy nodes etc
-####################################################################################################
-
-source cluster_deploy.sh
-
-####################################################################################################
-echo --- Phase 5a : Configuration: Floating IP
+echo --- Phase 4a : Configuration: Floating IP
 ####################################################################################################
 
 #Wait for the load balancer to be provisioned, necessary?
@@ -501,7 +495,7 @@ else
 fi
 
 ####################################################################################################
-echo --- Phase 5b : Configuration: SSL
+echo --- Phase 4b : Configuration: SSL
 ####################################################################################################
 
 #By default, webodm will attempt to setup SSL when enabled and no cert or key passed
@@ -551,6 +545,12 @@ fi
 
 #Final URL
 echo "Done. Access on https://$WEBAPP_HOST"
+
+####################################################################################################
+echo --- Phase 5 : Cluster config and GPU setup, deploy nodes etc
+####################################################################################################
+
+source cluster_deploy.sh
 
 ####################################################################################################
 echo --- Phase 6 : Apps: Monitoring

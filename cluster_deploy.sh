@@ -18,23 +18,33 @@ fi
 
 function nodegroup_check()
 {
-  NSTATUS=$(openstack coe nodegroup show $CLUSTER cluster-nodes -f value -c status)
-  if [[ "$NSTATUS" == *"$1"* ]]; then
+  #$1 nodegroup name
+  NSTATUS=$(openstack coe nodegroup show $CLUSTER $1 -f value -c status)
+  if [[ "$NSTATUS" == *"$2"* ]]; then
     return 0
   fi
   return 1
+}
+
+function nodegroup_wait()
+{
+  #Wait until nodegroup complete
+  #$1 nodegroup name
+  until nodegroup_check $1 "COMPLETE"
+  do
+    printf "Nodegroup $NSTATUS "
+    sleep 2
+  done
 }
 
 ####################################################################################################
 echo --- Phase 4a : Cluster node taints
 ####################################################################################################
 
-#Wait until nodegroup complete
-until nodegroup_check "COMPLETE"
-do
-  printf "Nodegroup $NSTATUS "
-  sleep 2
-done
+#Until bug with nodegroup creation fixed, may have to skip this
+nodegroup_wait $CLUSTER_BASE-P4
+nodegroup_wait $CLUSTER_BASE-A40
+nodegroup_wait $CLUSTER_BASE-A100
 
 #Need to re-create flannel pods after nodegroup created
 if [ $NODEGROUP_CREATED == 1 ];

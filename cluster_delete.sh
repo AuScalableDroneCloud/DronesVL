@@ -16,7 +16,9 @@ then
 fi
 
 #Delete the cluster
-openstack coe nodegroup delete $CLUSTER cluster-nodes
+openstack coe nodegroup delete $CLUSTER $CLUSTER_BASE-P4
+openstack coe nodegroup delete $CLUSTER $CLUSTER_BASE-A40
+openstack coe nodegroup delete $CLUSTER $CLUSTER_BASE-A100
 
-openstack coe nodegroup show $CLUSTER cluster-nodes -f value -c status
+#openstack coe nodegroup show $CLUSTER $CLUSTER_BASE-P4 -f value -c status
 
