@@ -12,7 +12,7 @@ kubectl get svc
 #  kubectl exec node$i -- /bin/bash -c "top -n1 | head -n 12  | tail -n 5";
 #done
 #for (( n=0; n<=$NODE_ODM+$NODE_MICMAC; n++ ))
-for (( n=1; n<=$NODE_ODM; n++ ))
+for (( n=0; n<$NODE_ODM; n++ ))
 do
   echo "--- Node $n --------------------------------------------------------------- ";
   SCRIPT="top -n1 | head -n 12  | tail -n 5"
@@ -20,6 +20,6 @@ do
   SCRIPT="${SCRIPT}; cd data; ls -d */"
   SCRIPT="${SCRIPT}; ps aux | grep Z | wc"
   SCRIPT="${SCRIPT}; cat tasks.json; echo ''"
-  kubectl exec --stdin --tty nodeodm$n -- /bin/bash -c "${SCRIPT}";
+  kubectl exec --stdin --tty nodeodm-$n -- /bin/bash -c "${SCRIPT}";
 done
 
