@@ -77,7 +77,8 @@ NVIDIA_DRIVER=460.32.03
 #helm install gpu-operator --devel nvidia/gpu-operator --set driver.repository=ghcr.io/auscalabledronecloud,driver.version=$NVIDIA_DRIVER,psp.enabled=true --wait
 
 subst_template gpu-operator-values.yaml
-helm install gpu-operator --devel --namespace nvidia-gpu --wait -f yaml/gpu-operator-values.yaml nvidia/gpu-operator
+#helm install gpu-operator --devel --namespace nvidia-gpu --wait -f yaml/gpu-operator-values.yaml nvidia/gpu-operator
+helm install --wait --generate-name -n gpu-operator --create-namespace --wait -f yaml/gpu-operator-values.yaml nvidia/gpu-operator
 
 ####################################################################################################
 echo --- Phase 4c : Deployment: NodeODM, ClusterODM

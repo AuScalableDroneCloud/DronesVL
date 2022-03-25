@@ -192,9 +192,6 @@ fi;
 #Create the compute cluster
 source cluster_create.sh
 
-#Create namespaces
-apply_template namespaces.yaml
-
 ####################################################################################################
 echo --- Phase 2a : Deployment: Volumes and storage
 ####################################################################################################
@@ -338,7 +335,8 @@ flux bootstrap ${FLUX_LIVE_REPO_TYPE} --owner=${FLUX_LIVE_REPO_OWNER} --reposito
 #flux suspend helmrelease jupyterhub -n jupyterhub
 #flux resume helmrelease jupyterhub -n jupyterhub
 
-#BUG: autohttps / proxy pods seem to fail to get letsencrypt cert on first boot, need to delete and let them run again
+#BUG: autohttps seems to fail to get letsencrypt cert on first boot, need to delete and let them run again
+#kubectl delete pod autohttps-##### -n jupyterhub
 
 #Info...
 #flux get all
@@ -563,6 +561,6 @@ helm repo update
 
 #Use values file instead
 subst_template botkube-values.yaml
-helm install --version v0.12.4 botkube --namespace botkube --wait -f yaml/botkube-values.yaml infracloudio/botkube
+helm install --version v0.12.4 botkube --namespace botkube --create-namespace --wait -f yaml/botkube-values.yaml infracloudio/botkube
 
 
