@@ -16,8 +16,8 @@ spec:
         app: broker
     spec:
       securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
+        runAsUser: 999
+        runAsGroup: 999
       containers:
       - image: redis
         imagePullPolicy: ""
