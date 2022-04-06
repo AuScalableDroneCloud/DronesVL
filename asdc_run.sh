@@ -486,20 +486,20 @@ then
   then
     echo " - Not found, generating"
     #Kill nginx
-    kubectl exec webapp-worker -c webapp -- killall nginx
+    kubectl exec webapp-worker-0 -c webapp -- killall nginx
 
     #Create cert
-    kubectl exec webapp-worker -c webapp -- /bin/bash -c "WO_SSL_KEY='' /webodm/nginx/letsencrypt-autogen.sh"
+    kubectl exec webapp-worker-0 -c webapp -- /bin/bash -c "WO_SSL_KEY='' /webodm/nginx/letsencrypt-autogen.sh"
 
     #Copy locally so will not be lost if pod deleted
     echo " - Copying to ./secrets"
     #(can't use kubectl cp for symlinks)
-    kubectl exec --stdin --tty webapp-worker -c webapp -- cat /webodm/nginx/ssl/cert.pem > secrets/cert.pem
-    kubectl exec --stdin --tty webapp-worker -c webapp -- cat /webodm/nginx/ssl/key.pem > secrets/key.pem
+    kubectl exec --stdin --tty webapp-worker-0 -c webapp -- cat /webodm/nginx/ssl/cert.pem > secrets/cert.pem
+    kubectl exec --stdin --tty webapp-worker-0 -c webapp -- cat /webodm/nginx/ssl/key.pem > secrets/key.pem
     chmod 600 secrets/*.pem
 
     #Restart nginx
-    kubectl exec webapp-worker -c webapp -- nginx -c /webodm/nginx/nginx-ssl.conf
+    kubectl exec webapp-worker-0 -c webapp -- nginx -c /webodm/nginx/nginx-ssl.conf
   fi;
 
 fi
