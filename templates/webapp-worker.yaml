@@ -16,11 +16,11 @@ spec:
       labels:
         app: webapp-worker
     spec:
-      #TODO: run as user not root
-      #securityContext:
-      #  runAsUser: 1000
-      #  runAsGroup: 1000
-      #  fsGroup: 1000
+      #Run as user not root
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
 
       #Volume will be shared by both containers
       volumes:
@@ -34,7 +34,7 @@ spec:
       #Wait for the services to start
       initContainers:
       - name: init-webapp
-        image: ghcr.io/auscalabledronecloud/asdc-webodm:latest
+        image: ghcr.io/auscalabledronecloud/asdc-webodm:sha-bdd9e82 
         command: ['bash', '-c']
         args:
           - chmod +x /webodm/*.sh;
@@ -47,17 +47,17 @@ spec:
       containers:
       #WebODM app
       - name: webapp-container
-        #- Added loop to wait for hostname to respond to ping, we need to wait for the service to come up and the load-balancer IP to be changed
+        #- Added loop to wait for hostname to respond, we need to wait for the service to come up and the load-balancer IP to be changed
         #to allow SSL before running start.sh
         #- Added patch/apply.sh to copy in selected patched files
         #- Added loop to apply patches and restart if main gunicorn process is killed 
         command: ["/bin/bash", "-c"]
         args:
-          - apt-get update -qq;
-            apt-get install -y -qq psmisc curl vim nmap netcat iputils-ping;
+          - mkdir -p /webodm/nginx/ssl;
+            /webodm/nginx/ssl;
             cd /webodm/nginx/ssl;
-            ln -s certs/cert.pem;
-            ln -s certs/key.pem;
+            cp ../certs/cert.pem .;
+            cp ../certs/key.pem .;
             if [ ! -s "/webodm/nginx/ssl/cert.pem" ];
             then echo "~~~~~~~~~~~~~~~~~~~~~~ GENERATING TEMPORARY CERTS ~~~~~~~~~~~~~~~~~~~~~~";
             rm cert.pem;
@@ -103,8 +103,7 @@ spec:
           value: ${WO_AUTH0_SECRET}
         - name: WO_ENCRYPTION_KEY
           value: ${WO_ENCRYPTION_KEY}
-        #image: opendronemap/webodm_webapp
-        image: ghcr.io/auscalabledronecloud/asdc-webodm:latest
+        image: ghcr.io/auscalabledronecloud/asdc-webodm:sha-bdd9e82 
         imagePullPolicy: ""
         name: webapp
         ports:
@@ -124,15 +123,13 @@ spec:
         - name: webapp-data
           mountPath: /webodm/app/media
         - name: nginx-ssl
-          mountPath: "/webodm/nginx/ssl/certs"
+          mountPath: "/webodm/nginx/certs"
 
       #WebODM worker
       - name: worker
         command: ["/bin/bash", "-c"]
         args:
-          - apt-get update -qq;
-            apt-get install -y -qq psmisc curl vim nmap;
-            /webodm/wait-for-it.sh -t 0 localhost:8000 -- echo "WEBAPP READY";
+          - /webodm/wait-for-it.sh -t 0 localhost:8000 -- echo "WEBAPP READY";
             while :;
             do
               /webodm/app/media/patch/apply.sh;
@@ -146,8 +143,7 @@ spec:
           value: redis://broker
         - name: WO_ENCRYPTION_KEY
           value: ${WO_ENCRYPTION_KEY}
-        #image: opendronemap/webodm_webapp
-        image: ghcr.io/auscalabledronecloud/asdc-webodm:latest
+        image: ghcr.io/auscalabledronecloud/asdc-webodm:sha-bdd9e82 
         imagePullPolicy: ""
         name: worker
         resources: {}

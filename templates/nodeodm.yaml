@@ -1,32 +1,30 @@
-#StatefulSet Deployment of NodeODM / NodeMICMAC or other procesing nodes
+#Deployment of NodeODM / NodeMICMAC or other procesing nodes
+# includes ClusterODM instance
+# only the first replica ClusterODM will be used
 
 #Headless service, required for statefulset
 #nodes available on {node-type}-{#}.{node-type}-svc
 apiVersion: v1
 kind: Service
 metadata:
-  creationTimestamp: null
   name: ${NODE_TYPE}-svc
+  labels:
+    app: ${NODE_TYPE}-service
 spec:
   ports:
-  - port: ${NODE_PORT}
-    targetPort: ${NODE_PORT}
+  ports:
+  - name: "node"
+    port: 3000
+    targetPort: 3000
+  - name: "cluster"
+    port: 3001
+    targetPort: 3001
+  - name: "admin"
+    port: 8080
+    targetPort: 8080
   selector:
     app: ${NODE_TYPE}
   clusterIP: None #Headless
-
----
-#ConfigMap for script to register the node on ClusterODM
-#(also fixes the ./tmp location issue)
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nodeodm-config-map
-  labels:
-    app: ${NODE_TYPE} 
-data:
-  setup.sh: |
-${NODE_SETUP_SCRIPT_CONTENT}
 
 ---
 apiVersion: apps/v1
@@ -44,7 +42,7 @@ spec:
       labels:
         app: ${NODE_TYPE}
     spec:
-      #NodeODM now runs as odm user
+      #NodeODM/ClusterODM now run as user
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
@@ -53,13 +51,18 @@ spec:
       containers:
       - name: ${NODE_TYPE}
         image: ${NODE_IMAGE}
+        env:
+        - name: CLUSTERODM
+          value: ${CLUSTER_NAME}
+        - name: NODETYPE
+          value: ${NODE_TYPE}
         command: ["/bin/bash", "-c"]
         args:
           - bash /var/www/setup.sh;
             /usr/bin/node /var/www/index.js ${NODE_ARGS};
         #args: ${NODE_ARGS}
         ports:
-        - containerPort: ${NODE_PORT}
+        - containerPort: 3000
           name: node
         volumeMounts:
         - name: ${NODE_TYPE}-storage
@@ -73,6 +76,24 @@ spec:
           limits:
             nvidia.com/gpu: ${NODE_GPUS} # requesting GPUs
 
+      - name: clusterodm
+        image: opendronemap/clusterodm
+        #image: ghcr.io/auscalabledronecloud/clusterodm
+        command: ["/bin/bash", "-c"]
+        args:
+          - rm -rf /var/www/tmp;
+            mkdir -p /var/www/data/tmp;
+            ln -s /var/www/data/tmp /var/www/tmp;
+            node /var/www/index.js -p 3001 --public-address http://clusterodm-${CLUSTER_NAME}:3001;
+        ports:
+        - containerPort: 3001
+          name: node
+        - containerPort: 8080
+          name: admin
+        volumeMounts:
+        - name: ${NODE_TYPE}-storage
+          mountPath: "/var/www/data"
+
       #ConfigMap containing setup.sh script
       volumes:
         - name: setup
@@ -82,36 +103,43 @@ spec:
             - key: setup.sh
               path: setup.sh
 
+        #Create an ephemeral volume on startup
+        - name: ${NODE_TYPE}-storage
+          ephemeral:
+            volumeClaimTemplate:
+              metadata:
+                labels:
+                  type: ${NODE_TYPE}-storage
+              spec:
+                accessModes: [ "ReadWriteOnce" ]
+                storageClassName: ${NODE_STORAGE_CLASS}
+                resources:
+                  requests:
+                    storage: ${NODE_VOLUME_SIZE}
+
+      #Deployed on each type of node based on GPU type
+      nodeSelector:
+        nvidia.com/gpu.product: ${NODE_SELECTOR}
+
       #Allow running on compute nodes
       tolerations:
       - key: "compute"
         operator: "Exists"
         effect: "NoSchedule"
 
-      #Use anti-affinity to prevent similar instances running on same k8s node
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                  - key: "type"
-                    operator: In
-                    values:
-                    - ${NODE_TYPE}
-              topologyKey: "kubernetes.io/hostname"
+      #One pod per k8s node
+      #https://stackoverflow.com/a/64958458
+      #https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: ${NODE_TYPE}
 
       # Zombie repellent
       # https://www.back2code.me/2020/02/zombie-processes-back-in-k8s/
       # https://stackoverflow.com/questions/50803268/kubernetes-equivalent-of-docker-run-init
       shareProcessNamespace: true
-
-  volumeClaimTemplates:
-  - metadata:
-      name: ${NODE_TYPE}-storage
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: ${NODE_VOLUME_SIZE}Gi
-      storageClassName: csi-sc-cinderplugin
 

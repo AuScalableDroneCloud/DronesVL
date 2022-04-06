@@ -9,20 +9,14 @@ echo Running patch on $HOSTNAME
 
 #Files to copy from local WebODM
 FILELIST="
+start.sh
 nginx/nginx-ssl.conf.template
 nginx/proxy.conf
 nginx/letsencrypt-autogen.sh
-auth0/urls.py
-auth0/utils.py
-auth0/views.py
-auth0/pipeline.py
-auth0/middleware.py
 package.json
 requirements.txt
-webodm/settings.py
-webodm/urls.py
 app/models/task.py
-app/api/authentication.py
+app/static/app/js/components/TaskListItem.jsx
 "
 
 #Run from the DronesVL repo base
@@ -30,32 +24,32 @@ BASEPATH=$(pwd)
 #Default is to assume reference WebODM install in parent dir
 WEBODMPATH=$(pwd)/../WebODM
 
-if [ $HOSTNAME != 'webapp-worker' ]; then
+if [ $HOSTNAME != 'webapp-worker-0' ]; then
 
   #COPY PATCHED FILES TO POD VOLUME
   echo "ON DEV PC"
   source $BASEPATH/settings.env
   cd $BASEPATH/patch/
-  kubectl cp "apply.sh" "webapp-worker:/webodm/app/media/patch/" -c webapp
+  kubectl cp --no-preserve=true "apply.sh" "webapp-worker-0:/webodm/app/media/patch/" -c webapp
   for f in $FILELIST
   do
     DIR="$(dirname "${f}")"
     echo "Creating dir $DIR..."
-    kubectl exec --stdin --tty webapp-worker -c webapp -- mkdir -p /webodm/app/media/patch/$DIR
+    kubectl exec --stdin --tty webapp-worker-0 -c webapp -- mkdir -p /webodm/app/media/patch/$DIR
     echo "Copying file $f..."
-    kubectl cp "$WEBODMPATH/$f" "webapp-worker:/webodm/app/media/patch/$f" -c webapp
+    kubectl cp --no-preserve=true "$WEBODMPATH/$f" "webapp-worker-0:/webodm/app/media/patch/$f" -c webapp
   done
 
   #To install patch, kill and restart main processes in pod...
   #echo "Kill celery"
-  #kubectl exec --stdin --tty webapp-worker -c worker -- celery -A worker control shutdown
+  #kubectl exec --stdin --tty webapp-worker-0 -c worker -- celery -A worker control shutdown
 
-  #kubectl exec --stdin --tty webapp-worker -c webapp -- killall webpack
-  #kubectl exec --stdin --tty webapp-worker -c webapp -- killall celery
+  #kubectl exec --stdin --tty webapp-worker-0 -c webapp -- killall webpack
+  #kubectl exec --stdin --tty webapp-worker-0 -c webapp -- killall celery
   echo "Kill nginx"
-  kubectl exec --stdin --tty webapp-worker -c webapp -- killall nginx
+  kubectl exec --stdin --tty webapp-worker-0 -c webapp -- killall nginx
   echo "Kill gunicorn"
-  kubectl exec --stdin --tty webapp-worker -c webapp -- killall gunicorn
+  kubectl exec --stdin --tty webapp-worker-0 -c webapp -- killall gunicorn
 
 else
 

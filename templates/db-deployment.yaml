@@ -16,6 +16,9 @@ spec:
       labels:
         app: db
     spec:
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
       containers:
       - image: opendronemap/webodm_db
         imagePullPolicy: ""
@@ -35,9 +38,7 @@ spec:
           failureThreshold: 5
           periodSeconds: 30
       restartPolicy: Always
-      serviceAccountName: ""
       volumes:
       - name: db-data
         persistentVolumeClaim:
           claimName: db-pvc
-status: {}

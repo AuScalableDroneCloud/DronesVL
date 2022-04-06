@@ -17,14 +17,16 @@ if ! [ -L /var/www/tmp ] ; then
 fi
 
 #Loop until clusterodm is running
-CLUSTERODM=clusterodm
+NODETYPE="${NODETYPE:-nodeodm}"
+NODEHOST=${HOSTNAME}.${NODETYPE}-svc
+CLUSTERODM=${NODETYPE}-0.${NODETYPE}-svc
 CLUSTERODM_PORT=8080
 until getent hosts ${CLUSTERODM}
 do
-  echo "Waiting for ClusterODM to start"
+  echo "Waiting for ${CLUSTERODM} to start"
   sleep 2
 done
-echo "ClusterODM is running : $1"
+echo "${CLUSTERODM} is running : $1"
 
 #Check if added already
 exec {fd}<>/dev/tcp/${CLUSTERODM}/${CLUSTERODM_PORT}
@@ -32,13 +34,13 @@ sleep 0.1
 echo -e "NODE LIST" >&${fd}
 sleep 0.1
 echo -e "QUIT" >&${fd}
-if cat <&${fd} | grep $HOSTNAME; then
+if cat <&${fd} | grep ${HOSTNAME}; then
   echo "Node already added..."
 else
   echo "Adding node to cluster..."
   exec {fd}<>/dev/tcp/${CLUSTERODM}/${CLUSTERODM_PORT}
   sleep 0.1
-  echo -e "NODE ADD $HOSTNAME.nodeodm-svc 3000" >&${fd}
+  echo -e "NODE ADD ${NODEHOST} 3000" >&${fd}
   sleep 0.1
   echo -e "QUIT" >&${fd}
 fi

@@ -11,9 +11,9 @@ spec:
 
   #Volume to resize
   volumes:
-  - name: dbdata
+  - name: db-data
     persistentVolumeClaim:
-      claimName: dbdata
+      claimName: db-pvc
 
   containers:
   #WebODM app
@@ -29,6 +29,6 @@ spec:
     resources: {}
     volumeMounts:
     - mountPath: /var/lib/postgresql/data
-      name: dbdata
+      name: db-data
       subPath: postgres
 

@@ -24,47 +24,6 @@ source settings.env
 echo --- Phase 1 : Cluster Launch
 ####################################################################################################
 
-STATUS=''
-function get_status()
-{
-  #Get the status of the running cluster
-  STATUS=$(openstack coe cluster show $CLUSTER -f value -c status)
-}
-
-function cluster_check()
-{
-  #if [ "$STATUS" == $1 ]; then
-  #Checks for desired status as sub-string,
-  #eg: UPDATE_COMPLETE/CREATE_COMPLETE will match COMPLETE
-  if [[ "$STATUS" == *"$1"* ]]; then
-    return 0
-  fi
-  return 1
-}
-
-function cluster_launched()
-{
-  if cluster_check "COMPLETE" ; then
-    return 0
-  fi
-  if cluster_check "CREATE_IN_PROGRESS"; then
-    return 0
-  fi
-  return 1
-}
-
-function wait_for_pod()
-{
-  #Loop until pod is running
-  #$1 = pod name
-  until kubectl get pods --field-selector status.phase=Running | grep $1
-  do
-    echo "Waiting for pod to enter status=Running : $1"
-    sleep 2
-  done
-  echo "Pod is running : $1"
-}
-
 #Use our config file from openstack magnum for kubectl
 export KUBECONFIG=$(pwd)/secrets/kubeconfig
 
@@ -238,8 +197,8 @@ fi
 # Create StorageClasses for dynamic provisioning
 apply_template storage-classes.yaml
 
-# Create the secret for accessing the cephfs shared data volume
-apply_template shared-data-cephfs-secret.yaml 
+# csi-rclone config secrets
+apply_template rclone-secret.yaml
 
 ####################################################################################################
 echo --- Phase 2b : Deployment: Tusd / Uppy
@@ -251,7 +210,8 @@ echo --- Phase 2b : Deployment: Tusd / Uppy
 helm repo add skm https://charts.sagikazarmark.dev
 
 #AWS S3 setup - required if tusd is to use object storage
-#apply_template s3-secret.yaml
+#Also now used for filestash testing
+apply_template s3-secret.yaml
 
 #Setup cinder volume provisioner
 apply_template tusd-pvc.yaml
@@ -288,7 +248,8 @@ apply_template ssl-secret.yaml
 apply_template db-service.yaml
 apply_template db-deployment.yaml
 apply_template broker-deployment.yaml
-apply_template webapp-worker-pod.yaml
+apply_template webapp-share.yaml
+apply_template webapp-worker.yaml
 apply_template broker-service.yaml
 apply_template webapp-service.yaml
 

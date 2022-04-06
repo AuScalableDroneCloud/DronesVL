@@ -11,9 +11,9 @@ spec:
 
   #Volume to resize
   volumes:
-  - name: webapp-claim0
+  - name: webapp-pvc
     persistentVolumeClaim:
-      claimName: webapp-claim0
+      claimName: webapp-pvc
 
   containers:
   #WebODM app
@@ -29,5 +29,5 @@ spec:
     resources: {}
     volumeMounts:
     - mountPath: /webodm/app/media
-      name: webapp-claim0
+      name: webapp-pvc
 
