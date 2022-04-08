@@ -9,10 +9,7 @@ echo Running patch on $HOSTNAME
 
 #Files to copy from local WebODM
 FILELIST="
-start.sh
 nginx/nginx-ssl.conf.template
-nginx/proxy.conf
-nginx/letsencrypt-autogen.sh
 package.json
 requirements.txt
 app/models/task.py
