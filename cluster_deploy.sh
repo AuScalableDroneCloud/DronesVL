@@ -58,7 +58,12 @@ then
   do 
     #kubectl get pods -A -owide --field-selector spec.nodeName=$node;
     kubectl taint nodes $node compute=true:NoSchedule
+  done
 
+  #Only use the new hardware for jupyterhub
+
+  for node in $(kubectl get nodes -l "nvidia.com/gpu.product in (A40,A100-PCIE-40GB)" -ojsonpath='{.items[*].metadata.name}'); 
+  do 
     #Use the compute nodes for jupyterhub pods
     #https://zero-to-jupyterhub.readthedocs.io/en/latest/administrator/optimization.html
     kubectl label nodes $node hub.jupyter.org/node-purpose=user
