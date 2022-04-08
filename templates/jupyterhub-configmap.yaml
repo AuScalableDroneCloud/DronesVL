@@ -28,7 +28,10 @@ data:
           auto_login: true
         JupyterHub:
           authenticator_class: auth0
-
+      db:
+        pvc:
+          storageClassName: csi-sc-cinderplugin
+          #storageClassName: csi-s3
     singleuser:
       defaultUrl: "/lab"
       #Custom environment variables
@@ -41,11 +44,11 @@ data:
       extraFiles:
         envtest:
           # mountPath is required and must be the absolute file path.
-          mountPath: /home/jovyan/envtest
+          mountPath: /home/jovyan/.env
           stringData: |
-            JUPYTERHUB_URL: "https://${JHUB_HOST}"
-            JUPYTER_OAUTH2_API_AUDIENCE: "https://${WEBAPP_HOST}/api"
-            JUPYTER_OAUTH2_CLIENT_ID: "${WO_AUTH0_KEY}"
-            JUPYTER_OAUTH2_SCOPE: "openid profile email"
-            JUPYTER_OAUTH2_AUTH_PROVIDER_URL: "https://${WO_AUTH0_SUBDOMAIN}.auth0.com"
+            JUPYTERHUB_URL="https://${JHUB_HOST}"
+            JUPYTER_OAUTH2_API_AUDIENCE="https://${WEBAPP_HOST}/api"
+            JUPYTER_OAUTH2_CLIENT_ID="${WO_AUTH0_KEY}"
+            JUPYTER_OAUTH2_SCOPE="openid profile email"
+            JUPYTER_OAUTH2_AUTH_PROVIDER_URL="https://${WO_AUTH0_SUBDOMAIN}.auth0.com"
 
