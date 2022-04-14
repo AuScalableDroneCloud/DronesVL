@@ -43,7 +43,7 @@ function create_cluster()
 
 create_cluster $CLUSTER_BASE-A100 $CLUSTER_A100_FLAVOUR $NODES_A100 cluster
 create_cluster $CLUSTER_BASE-A40 $CLUSTER_A40_FLAVOUR $NODES_A40 cluster
-create_cluster $CLUSTER_BASE-P4 $CLUSTER_P4_FLAVOUR $NODES_P4 cluster
+#create_cluster $CLUSTER_BASE-P4 $CLUSTER_P4_FLAVOUR $NODES_P4 cluster
 
 
 #kubectl get all

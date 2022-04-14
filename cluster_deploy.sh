@@ -42,7 +42,7 @@ echo --- Phase 4a : Cluster node taints
 ####################################################################################################
 
 #Until bug with nodegroup creation fixed, may have to skip this
-nodegroup_wait $CLUSTER_BASE-P4
+#nodegroup_wait $CLUSTER_BASE-P4
 nodegroup_wait $CLUSTER_BASE-A40
 nodegroup_wait $CLUSTER_BASE-A100
 
@@ -79,6 +79,7 @@ echo --- Phase 4c : Additional storage
 
 #The new nodes include a 3T volume, mount it so we can use it for scratch space
 #(Mounts on /var/mnt/scratch)
+#TODO: MOVE THIS TO FLUX
 kubectl apply -f templates/scratch-volume-mounter.yaml
 
 ####################################################################################################
@@ -91,6 +92,7 @@ export NODE_SETUP_SCRIPT_CONTENT=$(cat node_setup.sh | sed 's/\(.*\)/    \1/')
 apply_template nodeodm-script-configmap.yaml
 
 #Deploy NodeODM nodes (all GPU now, if we need CPU only can be configured per-cluster)
+#TODO: HOW TO MOVE THIS TO FLUX?
 function deploy_cluster()
 {
   #Create a cluster nodegroup
@@ -114,7 +116,6 @@ function deploy_cluster()
   #export NODE_ARGS=${ODM_FLAGS}
   export NODE_VOLUME_SIZE=$NODE_VOLSIZE
 
-  export storageClassName: csi-sc-cinderplugin
   export NODE_VOLUME_SIZE=$5
   export NODE_STORAGE_CLASS=$6
 
@@ -155,7 +156,7 @@ function deploy_cluster()
 #        --max_concurrency   <number>    Place a cap on the max-concurrency option to use for each task. (default: no limit)
 #        --max_runtime   <number> Number of minutes (approximate) that a task is allowed to run before being forcibly canceled (timeout). (default: no limit)
 
-deploy_cluster p4 $NODES_P4 Tesla-P4 "--max_images 1000" ${NODE_VOLSIZE}Gi csi-sc-cinderplugin
+#deploy_cluster p4 $NODES_P4 Tesla-P4 "--max_images 1000" ${NODE_VOLSIZE}Gi csi-sc-cinderplugin
 deploy_cluster a40 $NODES_A40 A40 "--max_images 10000" ${NODE_VOLSIZE}Gi csi-sc-cinderplugin
 deploy_cluster a100 $NODES_A100 A100-PCIE-40GB "--max_images 10000" ${NODE_VOLSIZE}Gi csi-sc-cinderplugin
 #When local-path provisioner enabled:..

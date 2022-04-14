@@ -104,18 +104,24 @@ spec:
               path: setup.sh
 
         #Create an ephemeral volume on startup
+        #- name: ${NODE_TYPE}-storage
+        #  ephemeral:
+        #    volumeClaimTemplate:
+        #      metadata:
+        #        labels:
+        #          type: ${NODE_TYPE}-storage
+        #      spec:
+        #        accessModes: [ "ReadWriteOnce" ]
+        #        storageClassName: ${NODE_STORAGE_CLASS}
+        #        resources:
+        #          requests:
+        #            storage: ${NODE_VOLUME_SIZE}
+
+        #Use hostPath to SSD mount instead for ephemeral storage
         - name: ${NODE_TYPE}-storage
-          ephemeral:
-            volumeClaimTemplate:
-              metadata:
-                labels:
-                  type: ${NODE_TYPE}-storage
-              spec:
-                accessModes: [ "ReadWriteOnce" ]
-                storageClassName: ${NODE_STORAGE_CLASS}
-                resources:
-                  requests:
-                    storage: ${NODE_VOLUME_SIZE}
+          hostPath:
+            # directory location on host
+            path: /var/mnt/scratch
 
       #Deployed on each type of node based on GPU type
       nodeSelector:
