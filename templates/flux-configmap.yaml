@@ -1,0 +1,45 @@
+#See: https://github.com/flux/zero-to-flux-k8s/blob/main/flux/values.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flux-configmap
+  namespace: flux-system
+data:
+  #Misc
+  cluster_env: "dev"
+  CLUSTER: ${CLUSTER}
+
+  #webodm
+  WEBAPP_IP: "${WEBAPP_IP}"
+  WEBAPP_VOLUME_SIZE: "${WEBAPP_VOLUME_SIZE}"
+  WEB_VOLUME_ID: "${WEB_VOLUME_ID}"
+  WEBAPP_HOST: "${WEBAPP_HOST}"
+  DB_VOLUME_SIZE: "${DB_VOLUME_SIZE}"
+  DB_VOLUME_ID: "${DB_VOLUME_ID}"
+  DB_VOLUME_SIZE: "${DB_VOLUME_SIZE}"
+
+  #tusd
+  TUSD_VOLUME_SIZE: "${TUSD_VOLUME_SIZE}"
+
+  #gpu-operator
+  #Must match version in current build at https://github.com/AuScalableDroneCloud/nvidia-driver-build-fedora
+  NVIDIA_DRIVER: "460.32.03"
+  #NVIDIA_DRIVER: "470.57.02" #Errors due to gcc version? Might need a newer coreos
+  #NVIDIA_DRIVER: "510.47.03"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: flux-secrets
+  namespace: flux-system
+type: Opaque
+stringData:
+  #botkube
+  BOTKUBE_SLACK_TOKEN: "${BOTKUBE_SLACK_TOKEN}"
+
+  #webodm
+  WO_AUTH0_DOMAIN: "${WO_AUTH0_DOMAIN}"
+  WO_AUTH0_KEY: "${WO_AUTH0_KEY}"
+  WO_AUTH0_SECRET: "${WO_AUTH0_SECRET}"
+  WO_ENCRYPTION_KEY: "${WO_ENCRYPTION_KEY}"

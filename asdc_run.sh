@@ -182,13 +182,15 @@ export DB_VOLUME_ID=$VOL_ID
 
 #Apply the storage IDs to the persistent volumes and volume sizes to volumes/claims
 if [ "$WEB_VOLUME_ID" ]; then
-  apply_template webapp-volume.yaml
+  #apply_template webapp-volume.yaml
+  #echo "MOVED TO FLUX"
 else
   echo "WEB_VOLUME_ID not set, aborting!"
   return 1
 fi
 if [ "$DB_VOLUME_ID" ]; then
-  apply_template db-volume.yaml
+  #apply_template db-volume.yaml
+  #echo "MOVED TO FLUX"
 else
   echo "DB_VOLUME_ID not set, aborting!"
   return 1
@@ -200,29 +202,10 @@ apply_template storage-classes.yaml
 # csi-rclone config secrets
 apply_template rclone-secret.yaml
 
-####################################################################################################
-echo --- Phase 2b : Deployment: Tusd / Uppy
-####################################################################################################
-
-# This needs to go before the webapp setup,
-# nginx proxy in webapp-worker requires host to be up
-
-helm repo add skm https://charts.sagikazarmark.dev
-
 #AWS S3 setup - required if tusd is to use object storage
 #Also now used for filestash testing
 apply_template s3-secret.yaml
 
-#Setup cinder volume provisioner
-apply_template tusd-pvc.yaml
-
-#Replace variables, then apply values to helm chart
-subst_template tusd-values.yaml
-
-helm install tusd --wait -f yaml/tusd-values.yaml skm/tusd
-
-#NOTE: AWS stuff is not actually being used currently
-#NOTE: unless connecting a dev instance on localhost, no need for LB and external IP
 
 ####################################################################################################
 echo --- Phase 2c : Deployment: WebODM
@@ -244,33 +227,14 @@ else
 fi;
 apply_template ssl-secret.yaml
 
-#Deploy the server WebODM instance
-apply_template db-service.yaml
-apply_template db-deployment.yaml
-apply_template broker-deployment.yaml
-apply_template webapp-share.yaml
-apply_template webapp-worker.yaml
-apply_template broker-service.yaml
-apply_template webapp-service.yaml
-
-#kubectl get pods --all-namespaces -owide
-#kubectl get svc
-
-#For debugging... log in to pod shell
-#kubectl exec --stdin --tty webapp-worker -- /bin/bash
-
-#Get output
-#kubectl logs webapp-worker -c worker
-
-#To specify alternate container in multi-container pod
-#kubectl exec --stdin --tty webapp-worker -c worker -- /bin/bash
-
-#When all is ready, start the web app (requires DNS resolution to hostname working for SSL cert)
-#kubectl exec webapp-worker -c webapp -- /webodm/start.sh
+#Deployment of the server WebODM instance moved to flux
 
 # ####################################################################################################
-echo --- Phase 3 : Deployment: Flux - Jupyterhub, cesium - Prepare configmaps and secrets for flux
+echo --- Phase 3 : Deployment: Flux apps - Prepare configmaps and secrets for flux
 # ####################################################################################################
+
+#Export all required settings env variables to this ConfigMap
+apply_template flux-configmap.yaml
 
 # Base64 encoding for k8s secrets
 export ASDC_SECRETS_BASE64=$(cat templates/asdc-secrets.tpl.yaml | envsubst | base64 -w 0)
@@ -286,21 +250,20 @@ apply_template cesium-s3-secret.yaml
 #(OK: Adding image automation features: https://fluxcd.io/docs/guides/image-update/#configure-image-scanning)
 flux bootstrap ${FLUX_LIVE_REPO_TYPE} --owner=${FLUX_LIVE_REPO_OWNER} --repository=${FLUX_LIVE_REPO} --team=${FLUX_LIVE_REPO_TEAM} --path=${FLUX_LIVE_REPO_PATH} --read-write-key --components-extra=image-reflector-controller,image-automation-controller
 
-#Check
-#kubectl -n jupyterhub describe hr jupyterhub
-#Delete
-#kubectl -n jupyterhub delete hr jupyterhub
+#Info...
+#flux get all
 
 #See/Suspend/resume
 #flux get helmreleases -n jupyterhub
-#flux suspend helmrelease jupyterhub -n jupyterhub
-#flux resume helmrelease jupyterhub -n jupyterhub
+#flux suspend/resume helmrelease jupyterhub -n jupyterhub
+#flux suspend/resume kustomization apps
+
+#Update immediately
+#flux reconcile kustomization cesium-asdc --with-source
+#flux reconcile kustomization apps --with-source
 
 #BUG: autohttps seems to fail to get letsencrypt cert on first boot, need to delete and let them run again
 #kubectl delete pod autohttps-##### -n jupyterhub
-
-#Info...
-#flux get all
 
 ####################################################################################################
 echo --- Phase 4a : Configuration: Floating IP
@@ -513,15 +476,5 @@ echo --- Phase 5 : Cluster config and GPU setup, deploy nodes etc
 
 source cluster_deploy.sh
 
-####################################################################################################
-echo --- Phase 6 : Apps: Monitoring
-####################################################################################################
-# https://www.botkube.io/installation/slack/
-helm repo add infracloudio https://infracloudio.github.io/charts
-helm repo update
-
-#Use values file instead
-subst_template botkube-values.yaml
-helm install --version v0.12.4 botkube --namespace botkube --create-namespace --wait -f yaml/botkube-values.yaml infracloudio/botkube
 
 

@@ -74,30 +74,6 @@ then
 fi
 
 ####################################################################################################
-echo --- Phase 4b : NVidia GPU Setup
-####################################################################################################
-# Apply our GPU driver installer/plugin container via daemonset
-# this installs the nvidia drivers and device plugin in the node host os
-
-#Using helm gpu-operator
-helm repo add nvidia https://nvidia.github.io/gpu-operator
-helm repo update
-
-#Must match version in current build at https://github.com/AuScalableDroneCloud/nvidia-driver-build-fedora
-NVIDIA_DRIVER=460.32.03
-#NVIDIA_DRIVER=470.57.02 #Errors due to gcc version? Might need a newer coreos
-#NVIDIA_DRIVER=510.47.03
-
-# See for options: https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/getting-started.html#chart-customization-options
-# See default values here: https://github.com/NVIDIA/gpu-operator/blob/master/deployments/gpu-operator/values.yaml
-# Enabling PodSecurityPolicies to fix crash in cuda-validator "PodSecurityPolicy: unable to admit pod"
-#helm install gpu-operator --devel nvidia/gpu-operator --set driver.repository=ghcr.io/auscalabledronecloud,driver.version=$NVIDIA_DRIVER,psp.enabled=true --wait
-
-subst_template gpu-operator-values.yaml
-helm install gpu-operator -n gpu-operator --create-namespace --wait -f yaml/gpu-operator-values.yaml nvidia/gpu-operator
-
-
-####################################################################################################
 echo --- Phase 4c : Additional storage
 ####################################################################################################
 
