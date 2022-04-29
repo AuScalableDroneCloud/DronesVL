@@ -72,9 +72,11 @@ spec:
           subPath: setup.sh
 
         # https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/
-        resources:
-          limits:
-            nvidia.com/gpu: ${NODE_GPUS} # requesting GPUs
+        # NOTE: requesting GPU consumes the resource, but it will still
+        # be available without doing so!
+        #resources:
+        #  limits:
+        #    nvidia.com/gpu: ${NODE_GPUS} # requesting GPUs
 
       - name: clusterodm
         image: opendronemap/clusterodm
