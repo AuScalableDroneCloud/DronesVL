@@ -1,4 +1,5 @@
 #!/bin/bash
+source settings.env #For KUBE_TAG
 #Install openstack python packages, use virtual env or user 
 if env |grep VIRTUAL_ENV;
 then
@@ -17,7 +18,8 @@ then
   if [ "$1" == "force" ] || [! command -v kubectl &> /dev/null ]
   then
     echo "kubectl could not be found! attempting to download..."
-    curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
+    #KUBE_TAG=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
+    curl -LO "https://storage.googleapis.com/kubernetes-release/release/${KUBE_TAG}/bin/linux/amd64/kubectl"
     chmod +x ./kubectl
   fi
 fi

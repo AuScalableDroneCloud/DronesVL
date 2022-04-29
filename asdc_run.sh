@@ -35,11 +35,6 @@ then
   #NOTE: This just fails when the cluster is running, so it's ok to run without checking here
   openstack coe cluster template delete $TEMPLATE;
 
-  KUBE_TAG=v1.21.1
-  FLANNEL_TAG=v0.14.0-amd64
-  #KUBE_TAG=v1.17.11
-  #FLANNEL_TAG=v0.12.0-amd64
-
   #Working labels for k8s 1.21.1 on fedora-coreos-32
   LABELS=container_infra_prefix=registry.rc.nectar.org.au/nectarmagnum/,kube_tag=$KUBE_TAG,flannel_tag=$FLANNEL_TAG,master_lb_floating_ip_enabled=true,docker_volume_type=standard,availability_zone=$ZONE,cinder_csi_enabled=true,ingress_controller=octavia
 
