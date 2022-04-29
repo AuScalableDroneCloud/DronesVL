@@ -11,9 +11,13 @@
 #(writes to ./tmp in /var/www, which fills ethemeral storage of docker image and node)
 #(replace this with symlink to the persistent volume)
 if ! [ -L /var/www/tmp ] ; then
+  rm -rf /var/www/data;
+  mkdir -p /var/www/scratch nodes;
+  ln -s /var/www/scratch/nodes /var/www/data;
+
   rm -rf /var/www/tmp;
-  mkdir /var/www/data/tmp;
-  ln -s /var/www/data/tmp /var/www/tmp;
+  mkdir /var/www/scratch/tmp;
+  ln -s /var/www/scratch/tmp /var/www/tmp;
 fi
 
 #Loop until clusterodm is running

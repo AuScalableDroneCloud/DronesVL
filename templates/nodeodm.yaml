@@ -66,7 +66,7 @@ spec:
           name: node
         volumeMounts:
         - name: ${NODE_TYPE}-storage
-          mountPath: "/var/www/data"
+          mountPath: "/var/www/scratch"
         - name: setup
           mountPath: /var/www/setup.sh
           subPath: setup.sh
