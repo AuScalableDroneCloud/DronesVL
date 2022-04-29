@@ -46,7 +46,7 @@ spec:
           - '--'
           - 'sh'
           - '-c'
-          - 'mkdir -p /mnt/scratch; mount /dev/vdb /mnt/scratch; chcon -Rt svirt_sandbox_file_t /mnt/scratch; chmod a+xrw /mnt/scratch'
+          - 'mkdir -p /mnt/scratch; mount /dev/vdb /mnt/scratch; chcon -Rt svirt_sandbox_file_t /mnt/scratch; mkdir -p /mnt/scratch/nodes; chmod -R a+xrw /mnt/scratch;'
         #chcon fixes selinux access denied issue in pods: https://github.com/projectatomic/adb-atomic-developer-bundle/issues/117
         securityContext:
           privileged: true
