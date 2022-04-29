@@ -195,12 +195,16 @@ fi
 apply_template storage-classes.yaml
 
 # csi-rclone config secrets
-apply_template rclone-secret.yaml
+#apply_template rclone-secret.yaml #Old rclone csi - deprecated
+apply_template csi-s3-secret.yaml #New version k8s-csi-s3
 
 #AWS S3 setup - required if tusd is to use object storage
 #Also now used for filestash testing
-apply_template s3-secret.yaml
+#apply_template s3-secret.yaml
 
+#https://github.com/yandex-cloud/k8s-csi-s3
+#https://github.com/yandex-cloud/k8s-csi-s3/tree/master/deploy/helm
+helm install --namespace kube-system csi-s3 ./k8s-csi-s3/deploy/helm/
 
 ####################################################################################################
 echo --- Phase 2c : Deployment: WebODM
