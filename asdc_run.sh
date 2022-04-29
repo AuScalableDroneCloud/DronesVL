@@ -178,14 +178,14 @@ export DB_VOLUME_ID=$VOL_ID
 #Apply the storage IDs to the persistent volumes and volume sizes to volumes/claims
 if [ "$WEB_VOLUME_ID" ]; then
   #apply_template webapp-volume.yaml
-  #echo "MOVED TO FLUX"
+  echo "MOVED TO FLUX"
 else
   echo "WEB_VOLUME_ID not set, aborting!"
   return 1
 fi
 if [ "$DB_VOLUME_ID" ]; then
   #apply_template db-volume.yaml
-  #echo "MOVED TO FLUX"
+  echo "MOVED TO FLUX"
 else
   echo "DB_VOLUME_ID not set, aborting!"
   return 1
