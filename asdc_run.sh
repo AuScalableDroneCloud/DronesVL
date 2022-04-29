@@ -143,9 +143,6 @@ else
   fi
 fi;
 
-#Create the compute cluster
-source cluster_create.sh
-
 ####################################################################################################
 echo --- Phase 2a : Deployment: Volumes and storage
 ####################################################################################################
@@ -232,6 +229,9 @@ apply_template ssl-secret.yaml
 echo --- Phase 3 : Deployment: Flux apps - Prepare configmaps and secrets for flux
 # ####################################################################################################
 
+#NOTE!!! cluster_deploy taints need to be applied before starting flux apps
+# or they will run on the GPU nodes!!! (Alternatively, wait until after this before starting with cluster_create)
+
 #Export all required settings env variables to this ConfigMap
 apply_template flux-configmap.yaml
 
@@ -263,6 +263,13 @@ flux bootstrap ${FLUX_LIVE_REPO_TYPE} --owner=${FLUX_LIVE_REPO_OWNER} --reposito
 
 #BUG: autohttps seems to fail to get letsencrypt cert on first boot, need to delete and let them run again
 #kubectl delete pod autohttps-##### -n jupyterhub
+
+####################################################################################################
+echo --- Phase 3b : Start the cluster nodes
+####################################################################################################
+
+#Create the compute cluster
+source cluster_create.sh
 
 ####################################################################################################
 echo --- Phase 4a : Configuration: Floating IP
