@@ -27,6 +27,10 @@ data:
   #NVIDIA_DRIVER: "470.57.02" #Errors due to gcc version? Might need a newer coreos
   #NVIDIA_DRIVER: "510.47.03"
 
+  #jupyterhub
+  JHUB_HOST: ${JHUB_HOST}
+  JHUB_LOADBALANCER_IP: ${JHUB_LOADBALANCER_IP}
+
 ---
 apiVersion: v1
 kind: Secret
@@ -48,4 +52,7 @@ stringData:
   #s3 object store on OpenStack
   AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
   AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+
+  #jupyterhub
+  JHUB_ADMIN_USER: ${JHUB_ADMIN_USER}
 
