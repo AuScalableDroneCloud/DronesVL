@@ -235,13 +235,6 @@ echo --- Phase 3 : Deployment: Flux apps - Prepare configmaps and secrets for fl
 #Export all required settings env variables to this ConfigMap
 apply_template flux-configmap.yaml
 
-# Base64 encoding for k8s secrets
-export ASDC_SECRETS_BASE64=$(cat templates/asdc-secrets.tpl.yaml | envsubst | base64 -w 0)
-
-apply_template jupyterhub-configmap.yaml
-apply_template jupyterhub-secret.yaml
-apply_template cesium-s3-secret.yaml
-
 # Bootstrap flux.
 #(Requires github personal access token with repo rights in GITHUB_TOKEN)
 
