@@ -17,9 +17,46 @@ app/static/app/js/components/TaskListItem.jsx
 "
 
 #Run from the DronesVL repo base
-BASEPATH=$(pwd)
-#Default is to assume reference WebODM install in parent dir
-WEBODMPATH=$(pwd)/../WebODM
+#Default is to assume reference WebODM install and DronesVL dir both in parent dir
+cd ..
+BASEPATH=$(pwd)/DronesVL
+WEBODMPATH=$(pwd)/WebODM
+cd -
+
+function exec_k8s()
+{
+  #Runs kubectl exec in a loop until it succeeds or 10 attempts
+  #ARGS: pod container command
+  for i in {1..10}
+  do
+    if kubectl exec --stdin --tty webapp-worker-0 -c webapp -- bash -c "$1"
+    then
+      echo "OK"
+      break
+    fi
+    echo "Failed: Attempting again ($i)"
+  done
+}
+
+function cp_k8s()
+{
+  #Runs kubectl cp ARGS in a loop until it succeeds or 10 attempts
+  #ARGS: pod container command
+  echo "COPYING"
+  for i in {1..10}
+  do
+    if kubectl cp --no-preserve=true "$1" "webapp-worker-0:$2" -c webapp
+    then
+      echo "OK"
+      break
+    fi
+    echo "Failed: Attempting again ($i)"
+  done
+  echo "COPY DONE"
+}
+
+#exec_k8s webapp-worker-0 webapp "ls | wc"
+#exit()
 
 if [ $HOSTNAME != 'webapp-worker-0' ]; then
 
@@ -27,15 +64,19 @@ if [ $HOSTNAME != 'webapp-worker-0' ]; then
   echo "ON DEV PC"
   source $BASEPATH/settings.env
   cd $BASEPATH/patch/
-  kubectl cp --no-preserve=true "apply.sh" "webapp-worker-0:/webodm/app/media/patch/" -c webapp
+  cp_k8s "apply.sh" "/webodm/app/media/patch/"
   for f in $FILELIST
   do
     DIR="$(dirname "${f}")"
     echo "Creating dir $DIR..."
-    kubectl exec --stdin --tty webapp-worker-0 -c webapp -- mkdir -p /webodm/app/media/patch/$DIR
+    exec_k8s "mkdir -p /webodm/app/media/patch/$DIR"
     echo "Copying file $f..."
-    kubectl cp --no-preserve=true "$WEBODMPATH/$f" "webapp-worker-0:/webodm/app/media/patch/$f" -c webapp
+    cp_k8s "$WEBODMPATH/$f" "/webodm/app/media/patch/$f"
   done
+  
+  #Update plugin
+  echo "Updating plugin"
+  exec_k8s "cd /webodm/app/media/plugins/asdc; git pull"
 
   #To install patch, kill and restart main processes in pod...
   #echo "Kill celery"
@@ -44,10 +85,11 @@ if [ $HOSTNAME != 'webapp-worker-0' ]; then
   #kubectl exec --stdin --tty webapp-worker-0 -c webapp -- killall webpack
   #kubectl exec --stdin --tty webapp-worker-0 -c webapp -- killall celery
   echo "Kill nginx"
-  kubectl exec --stdin --tty webapp-worker-0 -c webapp -- killall nginx
+  #kubectl exec --stdin --tty webapp-worker-0 -c webapp -- killall nginx
+  exec_k8s "killall nginx"
   echo "Kill gunicorn"
-  kubectl exec --stdin --tty webapp-worker-0 -c webapp -- killall gunicorn
-
+  #kubectl exec --stdin --tty webapp-worker-0 -c webapp -- killall gunicorn
+  exec_k8s "killall gunicorn"
 else
 
   #INSTALL PATCHED FILES IN POD
