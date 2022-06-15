@@ -56,20 +56,16 @@ spec:
           value: ${CLUSTER_NAME}
         - name: NODETYPE
           value: ${NODE_TYPE}
-        command: ["/bin/bash", "-c"]
-        args:
-          - bash /var/www/setup.sh;
-            /usr/bin/node /var/www/index.js ${NODE_ARGS};
-        #args: ${NODE_ARGS}
+        command: ["/bin/bash", "/var/www/node_setup.sh", "${NODE_ARGS}"]
         ports:
         - containerPort: 3000
           name: node
         volumeMounts:
         - name: ${NODE_TYPE}-storage
           mountPath: "/var/www/scratch"
-        - name: setup
-          mountPath: /var/www/setup.sh
-          subPath: setup.sh
+        - name: node_setup
+          mountPath: /var/www/node_setup.sh
+          subPath: node_setup.sh
 
         # https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/
         # NOTE: requesting GPU consumes the resource, but it will still
@@ -98,12 +94,12 @@ spec:
 
       #ConfigMap containing setup.sh script
       volumes:
-        - name: setup
+        - name: node_setup
           configMap:
-            name: nodeodm-config-map
+            name: script-configmap
             items:
-            - key: setup.sh
-              path: setup.sh
+            - key: node_setup.sh
+              path: node_setup.sh
 
         #Create an ephemeral volume on startup
         #- name: ${NODE_TYPE}-storage

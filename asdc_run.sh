@@ -144,7 +144,7 @@ else
 fi;
 
 ####################################################################################################
-echo --- Phase 2a : Deployment: Volumes and storage
+echo --- Phase 2 : Deployment: Volumes and storage
 ####################################################################################################
 
 ### Create persistent cinder volumes
@@ -188,43 +188,6 @@ else
   return 1
 fi
 
-# Create StorageClasses for dynamic provisioning
-apply_template storage-classes.yaml
-
-# csi-rclone config secrets
-#apply_template rclone-secret.yaml #Old rclone csi - deprecated
-apply_template csi-s3-secret.yaml #New version k8s-csi-s3
-
-#AWS S3 setup - required if tusd is to use object storage
-#Also now used for filestash testing
-#apply_template s3-secret.yaml
-
-#https://github.com/yandex-cloud/k8s-csi-s3
-#https://github.com/yandex-cloud/k8s-csi-s3/tree/master/deploy/helm
-helm install --namespace kube-system csi-s3 ./k8s-csi-s3/deploy/helm/
-
-####################################################################################################
-echo --- Phase 2c : Deployment: WebODM
-####################################################################################################
-
-#If domain already has certificate issued, copy to local dir as cert.pem & key.pem
-#If not, will attempt to generate with letsencrypt later
-echo "Checking for existing SSL cert..."
-if [ ! -s "secrets/cert.pem" ] || [ ! -s "secrets/key.pem" ];
-then
-  echo " - Certs not found, generating once pod running"
-  SSL_KEY_B64='""'
-  SSL_CERT_B64='""'
-else
-  #(files exist and length > 0)
-  echo " - Certs found, applying as ssl-secret.yaml for webapp"
-  SSL_KEY_B64=$(base64 --wrap=0 secrets/key.pem)
-  SSL_CERT_B64=$(base64 --wrap=0 secrets/cert.pem)
-fi;
-apply_template ssl-secret.yaml
-
-#Deployment of the server WebODM instance moved to flux
-
 # ####################################################################################################
 echo --- Phase 3 : Deployment: Flux apps - Prepare configmaps and secrets for flux
 # ####################################################################################################
@@ -232,8 +195,8 @@ echo --- Phase 3 : Deployment: Flux apps - Prepare configmaps and secrets for fl
 #NOTE!!! cluster_deploy taints need to be applied before starting flux apps
 # or they will run on the GPU nodes!!! (Alternatively, wait until after this before starting with cluster_create)
 
-#Export all required settings env variables to this ConfigMap
-apply_template flux-configmap.yaml
+#Update ConfigMap/Secret data
+./asdc_update.sh
 
 # Bootstrap flux.
 #(Requires github personal access token with repo rights in GITHUB_TOKEN)
@@ -253,221 +216,17 @@ flux bootstrap ${FLUX_LIVE_REPO_TYPE} --owner=${FLUX_LIVE_REPO_OWNER} --reposito
 #Update immediately
 #flux reconcile kustomization cesium-asdc --with-source
 #flux reconcile kustomization apps --with-source
+#flux reconcile helmrelease jupyterhub -n jupyterhub
 
 #BUG: autohttps seems to fail to get letsencrypt cert on first boot, need to delete and let them run again
 #kubectl delete pod autohttps-##### -n jupyterhub
 
 ####################################################################################################
-echo --- Phase 3b : Start the cluster nodes
+echo --- Phase 4 : Start the cluster nodes
 ####################################################################################################
 
 #Create the compute cluster
 source cluster_create.sh
-
-####################################################################################################
-echo --- Phase 4a : Configuration: Floating IP
-####################################################################################################
-
-#Wait for the load balancer to be provisioned, necessary?
-#echo "Waiting for load balancer IP"
-EXTERNAL_IP=
-while [ -z $EXTERNAL_IP ];
-do
-  printf '.';
-  #EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.spec.loadBalancerIP}')
-  EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-  sleep 1
-done
-echo ""
-
-#Used to open port if necessary... already open now but may be from previous test attempts
-#PORT_ID=$(openstack floating ip list --floating-ip-address $EXTERNAL_IP -c Port -f value)
-#openstack port show $PORT_ID -c security_group_ids -f value
-#openstack port set --security-group http $PORT_ID #This was failing
-echo "Ready at http://$EXTERNAL_IP"
-
-#Check if the hostname resolves to an already defined floating-ip
-WEBAPP_IP=$(getent hosts ${WEBAPP_HOST} | awk '{ print $1 }')
-echo $WEBAPP_HOST resolves to $WEBAPP_IP
-
-#Do we already have a floating-ip ready to use that our hostname points to?
-#(should always be the case except on first spin-up as we want to keep this)
-#FIP_ID=$(openstack floating ip list --floating-ip-address $WEBAPP_IP -c ID -f value)
-FIP_ID=$(openstack floating ip list --tags ${WEBAPP_HOST} -c 'ID' -f value)
-if [ -z ${FIP_ID} ];
-then
-  #Tag floating ips with their description, as we can't filter by description only tag
-  FIPS=$(openstack floating ip list -c 'ID' -f value)
-  for FIP_ID in ${FIPS}
-  do
-    DESC=$(openstack floating ip show $FIP_ID -c 'description' -f value)
-    if [ ${DESC} ];
-    then
-      echo Tagging $FIP_ID with $DESC
-      openstack floating ip set --tag='$DESC' $FIP_ID
-    fi
-  done
-
-  #Check if floating ip already created and tagged for this hostname
-  FP_ID=$(openstack floating ip list --tags ${WEBAPP_HOST} -c ID -f value)
-  if [ -z ${FIP_ID} ];
-  then
-    #Create the floating ip that will be used from now on
-    echo "Creating floating IP for $WEBAPP_HOST"
-    #Getting network ID
-    NET_ID=$(openstack network list --name=$NETWORK -c ID -f value)
-    #Tag with the domain name to help with lookup
-    openstack floating ip create $NET_ID --tag $WEBAPP_HOST --description $WEBAPP_HOST
-
-    #Can set tag after if needed with
-    #openstack floating ip set --tag='${WEBAPP_HOST}' $FP_ID
-    #openstack floating ip set --description '${WEBAPP_HOST}' $FP_ID
-    FP_ID=$(openstack floating ip list --tags ${WEBAPP_HOST} -c ID -f value)
-    FLOATING_IP=$(openstack floating ip list --tags ${WEBAPP_HOST} -c 'Floating IP Address' -f value)
-    echo "Please set your DNS for $WEBAPP_HOST to point to $FLOATING_IP"
-    echo "...will loop until resolves: ctrl+c to abort"
-    until [ ${WEBAPP_IP} = ${FLOATING_IP} ];
-    do
-      WEBAPP_IP=$(getent hosts ${WEBAPP_HOST} | awk '{ print $1 }');
-      echo $WEBAPP_HOST resolves to $WEBAPP_IP
-      sleep 5.0
-    done
-
-    #return 0
-  else
-    echo "Floating IP exists for $WEBAPP_HOST, but it resolves to $WEBAPP_IP, please check DNS entries"
-    openstack floating ip show $FP_ID
-    return 1
-  fi
-fi
-
-#If we get to this point, we have
-#1) Our own managed Floating IP (not created by k8s)
-#2) DNS for our hostname correctly resolving to above floating ip
-#3) webapp-service up and running ? - or use this ip to start it from template
-
-#Get assigned IP details
-EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-#EXTERNAL_IP=$(kubectl get service webapp-service -o jsonpath='{.spec.loadBalancerIP}')
-echo "Service ingress IP is : $EXTERNAL_IP"
-FIXED_IP=$(openstack floating ip list --floating-ip-address $EXTERNAL_IP -c 'Fixed IP Address' -f value)
-echo "Associated internal Fixed IP is: $FIXED_IP"
-
-#If webapp host resolves to this service load balancer IP, everything is good
-if [ ${WEBAPP_IP} = ${EXTERNAL_IP} ] && [ ${FIXED_IP} != "None" ];
-then
-  echo "$WEBAPP_HOST ip matches service ip already, looks good to go"
-else
-  FLOATING_IP=$(openstack floating ip list --tags ${WEBAPP_HOST} -c 'Floating IP Address' -f value)
-  echo "Floating IP found with tag $WEBAPP_HOST : $FLOATING_IP"
-  #FIP_PORT=$(openstack floating ip list --tags ${WEBAPP_HOST} -c Port -f value)
-  #FIP_PORT=$(openstack floating ip list --floating-ip-address $WEBAPP_IP -c Port -f value)
-
-  echo Using this IP: $FLOATING_IP
-  echo ID $FIP_ID
-  #echo Port $FIP_PORT
-
-  if [ ! $? ];
-  then
-    echo "No external IP available yet for load balancer, aborting"
-    return 0
-  fi
-  PORT_ID=$(openstack floating ip list --floating-ip-address $EXTERNAL_IP -c Port -f value)
-  echo Port $PORT_ID
-  OLD_ID=$(openstack floating ip list --floating-ip-address $EXTERNAL_IP -c ID -f value)
-  echo ID $OLD_ID
-
-  #NOTE: there is an issue here if the FIP has been manually disassociated
-  #need to detect and re-assign the port
-  if [ ! -z ${OLD_ID} ];
-  then
-    if [ ${EXTERNAL_IP} != ${FLOATING_IP} ];
-    then
-      #Can only assign one external IP so must delete the generated one
-      echo "Deleting assigned floating ip"
-      openstack floating ip delete $OLD_ID
-    else
-      echo "WARNING: Designated floating IP already assigned to this service!"
-      unset FIXED_IP #Skip re-assign
-    fi
-  else
-    echo "WARNING: No existing floating IP assigned"
-  fi
-
-  if [ ! -z ${FIXED_IP} ];
-  then
-    echo "*** DEPRECATED - THIS SHOULD NOT BE REACHED!"
-    return 1; 
-    echo "Applying reserved floating ip"
-    #Setup our reserved IP to point to the load-balancer service
-    openstack floating ip set --port $PORT_ID --fixed-ip-address=$FIXED_IP $FIP_ID
-
-    openstack floating ip list
-
-    ping $WEBAPP_HOST -c 1
-
-    echo "NOTE: must clear port of this floating ip before deleting services - or will be destroyed... use: ./asdc_update.sh ip"
-    # ^^ Above is not true if service uses specific floating ip when created rather than replacing
-
-    #Seems to work without writing this, but allows us to check the value on the service matches our floating IP
-    kubectl patch svc webapp-service -p "{\"spec\": {\"loadBalancerIP\": \"${FLOATING_IP}\"}}"
-
-  else
-    echo "WARNING: No fixed IP found"
-  fi
-fi
-
-####################################################################################################
-echo --- Phase 4b : Configuration: SSL
-####################################################################################################
-
-#By default, webodm will attempt to setup SSL when enabled and no cert or key passed
-#This does not seem to work through the loadbalancer, so initially we create a self signed cert
-#Then manually run letsencrypt-autogen.sh after up and running
-
-#Is SSL up and working yet?
-if ! curl https://${WEBAPP_HOST};
-then
-  #Checks listening ports, requires nmap to be installed
-  #kubectl exec webapp-worker -c webapp -- nmap -sT -O localhost
-
-  #Wait for the server to be reachable with self-signed or provided certificate
-  #(THIS CAN TAKE A WHILE)
-  echo "Waiting for initial https service "
-  while ! timeout 2.0 curl -k https://${WEBAPP_HOST} &> /dev/null;
-    do printf '*';
-    sleep 5;
-  done;
-  echo ""
-
-  #If domain already has certificate issued, copy to local dir as cert.pem & key.pem
-  #If not, will attempt to generate with letsencrypt
-  echo "Checking for existing SSL cert..."
-  #(file exists and length > 0)
-  if [ ! -s "secrets/cert.pem" ] || [ ! -s "secrets/key.pem" ];
-  then
-    echo " - Not found, generating"
-    #Kill nginx
-    kubectl exec webapp-worker-0 -c webapp -- killall nginx
-
-    #Create cert
-    kubectl exec webapp-worker-0 -c webapp -- /bin/bash -c "WO_SSL_KEY='' /webodm/nginx/letsencrypt-autogen.sh"
-
-    #Copy locally so will not be lost if pod deleted
-    echo " - Copying to ./secrets"
-    #(can't use kubectl cp for symlinks)
-    kubectl exec --stdin --tty webapp-worker-0 -c webapp -- cat /webodm/nginx/ssl/cert.pem > secrets/cert.pem
-    kubectl exec --stdin --tty webapp-worker-0 -c webapp -- cat /webodm/nginx/ssl/key.pem > secrets/key.pem
-    chmod 600 secrets/*.pem
-
-    #Restart nginx
-    kubectl exec webapp-worker-0 -c webapp -- nginx -c /webodm/nginx/nginx-ssl.conf
-  fi;
-
-fi
-
-#Final URL
-echo "Done. Access on https://$WEBAPP_HOST"
 
 ####################################################################################################
 echo --- Phase 5 : Cluster config and GPU setup, deploy nodes etc
@@ -475,5 +234,8 @@ echo --- Phase 5 : Cluster config and GPU setup, deploy nodes etc
 
 source cluster_deploy.sh
 
-
+#SMTP
+#https://artifacthub.io/packages/helm/docker-postfix/mail
+#helm repo add bokysan https://bokysan.github.io/docker-postfix/
+#helm upgrade --install --set persistence.enabled=false --set config.general.ALLOW_EMPTY_SENDER_DOMAINS=1 mail bokysan/mail
 

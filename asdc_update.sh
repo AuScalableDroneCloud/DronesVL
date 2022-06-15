@@ -5,6 +5,9 @@
 # - This script contains several operations to apply to the running cluster, 
 #   such as restarting pods for updates or reconfiguring the live cluster
 #
+# ./asdc_update.sh - update the configmaps and secrets only
+#                    use this to quickly apply modified values to the live cluster.
+#
 # ./asdc_update.sh webapp - update the webapp/worker pod
 #                           use this when the image has been modified,
 #                           to get the latest code into live instance
@@ -32,9 +35,41 @@ fi
 #Load the settings, setup openstack and kubectl
 source settings.env
 
+#####################################################
+echo "Configuring storage..."
+#####################################################
+
+# Create StorageClasses for dynamic provisioning
+apply_template storage-classes.yaml
+
+# csi-rclone config secrets
+#apply_template rclone-secret.yaml #Old rclone csi - deprecated
+apply_template csi-s3-secret.yaml #New version k8s-csi-s3
+
+#AWS S3 setup - required if tusd is to use object storage
+#Also now used for filestash testing
+#apply_template s3-secret.yaml
+
+#https://github.com/yandex-cloud/k8s-csi-s3
+#https://github.com/yandex-cloud/k8s-csi-s3/tree/master/deploy/helm
+helm install --namespace kube-system csi-s3 ./k8s-csi-s3/deploy/helm/
+
+#####################################################
+echo "Upating ConfigMaps and Secret data for FluxCD..."
+#####################################################
+
+#Apply the configMap and secret data for fluxcd
+#Get content of the setup scripts
+export NODEODM_SETUP_SCRIPT_CONTENT=$(cat node_setup.sh | sed 's/\(.*\)/    \1/')
+export WEBODM_SETUP_SCRIPT_CONTENT=$(cat asdc_init.sh | sed 's/\(.*\)/    \1/')
+
+#Export all required settings env variables to this ConfigMap
+apply_template flux-configmap.yaml
+#####################################################
+
 if [ $# -eq 0 ]
 then
-  echo "No arguments supplied"
+  echo "No arguments supplied, no further tasks, exiting"
   exit
 fi
 
@@ -62,6 +97,7 @@ then
 
 elif [ "$1" = "web-storage-resize" ];
 then
+  #TODO: fix to use deployment/volume from asdc-infra
 
   #Resize the web-storage volume (experimental)
   # first set the new volume size in settings.env and run 'source settings.env'
@@ -86,6 +122,7 @@ then
 
 elif [ "$1" = "db-storage-resize" ];
 then
+  #TODO: fix to use deployment/volume from asdc-infra
 
   #Resize the db-storage volume (experimental)
   # first set the new volume size in settings.env and run 'source settings.env'

@@ -1,3 +1,5 @@
+#Pass env settings to fluxcd
+#via ConfigMaps and Secret
 #See: https://github.com/flux/zero-to-flux-k8s/blob/main/flux/values.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -54,8 +56,27 @@ stringData:
   AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
   AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
 
+  #s3 for cesium (APPF)
+  CESIUM_AWS_ACCESS_KEY_ID: $CESIUM_AWS_ACCESS_KEY_ID
+  CESIUM_AWS_SECRET_ACCESS_KEY: $CESIUM_AWS_SECRET_ACCESS_KEY
+
   #jupyterhub
   JHUB_ADMIN_USER: ${JHUB_ADMIN_USER}
   JHUB_CRYPT_KEEPER_KEY1: ${JHUB_CRYPT_KEEPER_KEY1}
   JHUB_SECRET_TOKEN: ${JHUB_SECRET_TOKEN}
+
+---
+#Init scripts for WebODM, NodeODM
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-configmap
+  namespace: default
+data:
+  node_setup.sh: |
+${NODEODM_SETUP_SCRIPT_CONTENT}
+  asdc_init.sh: |
+${WEBODM_SETUP_SCRIPT_CONTENT}
+
+
 

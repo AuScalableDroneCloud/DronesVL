@@ -49,5 +49,6 @@ else
   echo -e "QUIT" >&${fd}
 fi
 
-
+#Launch node
+/usr/bin/node /var/www/index.js $@;
 
