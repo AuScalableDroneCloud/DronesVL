@@ -63,7 +63,7 @@ spec:
         volumeMounts:
         - name: ${NODE_TYPE}-storage
           mountPath: "/var/www/scratch"
-        - name: node_setup
+        - name: node-setup
           mountPath: /var/www/node_setup.sh
           subPath: node_setup.sh
 
@@ -94,7 +94,7 @@ spec:
 
       #ConfigMap containing setup.sh script
       volumes:
-        - name: node_setup
+        - name: node-setup
           configMap:
             name: script-configmap
             items:
