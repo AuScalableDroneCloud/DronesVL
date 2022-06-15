@@ -97,8 +97,6 @@ then
 
 elif [ "$1" = "web-storage-resize" ];
 then
-  #TODO: fix to use deployment/volume from asdc-infra
-
   #Resize the web-storage volume (experimental)
   # first set the new volume size in settings.env and run 'source settings.env'
   kubectl delete pod webapp-worker-0
@@ -113,7 +111,7 @@ then
 
   #Re-create with resizer pod
   #(runs privileged and uses resize2fs to resize the ext4 fs)
-  kubectl create -f templates/resize-webapp-volume.yaml
+  kubectl create -f utils/resize-webapp-volume.yaml
 
   sleep 5
 
@@ -122,8 +120,6 @@ then
 
 elif [ "$1" = "db-storage-resize" ];
 then
-  #TODO: fix to use deployment/volume from asdc-infra
-
   #Resize the db-storage volume (experimental)
   # first set the new volume size in settings.env and run 'source settings.env'
   kubectl delete deployment db
@@ -138,7 +134,7 @@ then
 
   #Re-create with resizer pod
   #(runs privileged and uses resize2fs to resize the ext4 fs)
-  kubectl create -f templates/resize-dbvolume.yaml
+  kubectl create -f utils/resize-dbvolume.yaml
 
   sleep 5
 
