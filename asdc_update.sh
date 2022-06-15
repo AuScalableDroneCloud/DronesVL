@@ -60,8 +60,8 @@ echo "Upating ConfigMaps and Secret data for FluxCD..."
 
 #Apply the configMap and secret data for fluxcd
 #Get content of the setup scripts
-export NODEODM_SETUP_SCRIPT_CONTENT=$(cat node_setup.sh | sed 's/\(.*\)/    \1/')
-export WEBODM_SETUP_SCRIPT_CONTENT=$(cat asdc_init.sh | sed 's/\(.*\)/    \1/')
+export NODEODM_SETUP_SCRIPT_CONTENT=$(cat scripts/node_setup.sh | sed 's/\(.*\)/    \1/')
+export WEBODM_SETUP_SCRIPT_CONTENT=$(cat scripts/asdc_init.sh | sed 's/\(.*\)/    \1/')
 
 #Export all required settings env variables to this ConfigMap
 apply_template flux-configmap.yaml
