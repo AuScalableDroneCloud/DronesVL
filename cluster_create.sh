@@ -30,7 +30,7 @@ function create_cluster()
     echo "Cluster nodegroup $1 doesn't exist, creating"
     # https://docs.openstack.org/magnum/latest/user/#node-groups
     #(Will error if already created so ok to run again without check)
-    openstack coe nodegroup create $CLUSTER $1 --flavor $2 --min-nodes $3 --node-count $3 --role $4 --docker-volume-size ${CLUSTER_DOCKER_VOL_SIZE}
+    openstack coe nodegroup create $CLUSTER $1 --flavor $2 --min-nodes 1 --node-count $3 --role $4 --docker-volume-size ${CLUSTER_DOCKER_VOL_SIZE}
     #NOTE: if usng the --labels option, also add --merge-labels or others will be cleared
 
     #If any nodegroups created, this flag triggers setting taints etc in cluster_deploy.sh
