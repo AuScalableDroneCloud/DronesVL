@@ -150,43 +150,25 @@ echo --- Phase 2 : Deployment: Volumes and storage
 ### Create persistent cinder volumes
 
 #Volume creation function
-VOL_ID=''
-#List of all volume names for faster checks
-VOLS=$(openstack volume list -c Name -f value)
-function create_volume()
+function get_volume()
 {
-  if ! echo "$VOLS" | grep -x "$2";
+  VOL_ID=$(openstack volume show $2 -f value -c id)
+  if [ $? -eq 1 ]
   then
     #Create volume, args size in gb, label
     echo "Creating Volume '$2' of size $1 gb"
     openstack volume create --availability-zone $ZONE --size $1 $2
+    VOL_ID=$(openstack volume show $2 -f value -c id)
   fi
-  VOL_ID=$(openstack volume show $2 -f value -c id)
 }
 
 #Create volume for server/webapp
-create_volume $WEBAPP_VOLUME_SIZE web-storage
+get_volume $WEBAPP_VOLUME_SIZE web-storage
 export WEB_VOLUME_ID=$VOL_ID
 
 #Create volume for db
-create_volume $DB_VOLUME_SIZE db-storage
+get_volume $DB_VOLUME_SIZE db-storage
 export DB_VOLUME_ID=$VOL_ID
-
-#Apply the storage IDs to the persistent volumes and volume sizes to volumes/claims
-if [ "$WEB_VOLUME_ID" ]; then
-  #apply_template webapp-volume.yaml
-  echo "MOVED TO FLUX"
-else
-  echo "WEB_VOLUME_ID not set, aborting!"
-  return 1
-fi
-if [ "$DB_VOLUME_ID" ]; then
-  #apply_template db-volume.yaml
-  echo "MOVED TO FLUX"
-else
-  echo "DB_VOLUME_ID not set, aborting!"
-  return 1
-fi
 
 # ####################################################################################################
 echo --- Phase 3 : Deployment: Flux apps - Prepare configmaps and secrets for flux
