@@ -37,8 +37,7 @@ then
   #This does not work until the loadbalancer is fully provisioned,
   #so initially we loop until the HTTPS port is open and responding,
   #Then manually run letsencrypt-autogen.sh to generate the certificates
-  rm cert.pem
-  rm key.pem
+  rm *.pem
 
   echo "Starting test server"
   python -m http.server 8000 & # listen on the https port 8000:443
@@ -53,6 +52,7 @@ then
   echo ""
   #Kill running server
   killall python
+  sleep 5;
 
   #Attempt up to 5 times to get certs
   for i in {0..5}
@@ -67,11 +67,11 @@ then
     fi
   done;
 
-  #Copy new (symlinked) certs and replace symlinks
+  #Copy new (symlinked) certs
   cp /webodm/nginx/ssl/*.pem /webodm/app/media/ssl/
-  rm /webodm/app/media/ssl/*.pem
 fi
 
+# Replace symlinks if not present
 ln -s /webodm/app/media/ssl/cert.pem /webodm/nginx/ssl/cert.pem
 ln -s /webodm/app/media/ssl/key.pem /webodm/nginx/ssl/key.pem
 
