@@ -10,6 +10,7 @@ data:
   #Misc
   cluster_env: "dev"
   CLUSTER: ${CLUSTER}
+  ZONE: ${ZONE}
 
   #webodm
   WEBAPP_IP: "${WEBAPP_IP}"
