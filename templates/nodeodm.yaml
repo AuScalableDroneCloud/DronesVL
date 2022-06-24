@@ -62,10 +62,12 @@ spec:
           name: node
         volumeMounts:
         - name: ${NODE_TYPE}-storage
-          mountPath: "/var/www/scratch"
+          mountPath: "/var/www/localdisk"
         - name: node-setup
           mountPath: /var/www/node_setup.sh
           subPath: node_setup.sh
+        - name: ${NODE_TYPE}-ephemeral
+          mountPath: "/var/www/ephemeral"
 
         # https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/
         # NOTE: requesting GPU consumes the resource, but it will still
@@ -88,9 +90,6 @@ spec:
           name: node
         - containerPort: 8080
           name: admin
-        volumeMounts:
-        - name: ${NODE_TYPE}-storage
-          mountPath: "/var/www/data"
 
       #ConfigMap containing setup.sh script
       volumes:
@@ -102,24 +101,25 @@ spec:
               path: node_setup.sh
 
         #Create an ephemeral volume on startup
-        #- name: ${NODE_TYPE}-storage
-        #  ephemeral:
-        #    volumeClaimTemplate:
-        #      metadata:
-        #        labels:
-        #          type: ${NODE_TYPE}-storage
-        #      spec:
-        #        accessModes: [ "ReadWriteOnce" ]
-        #        storageClassName: ${NODE_STORAGE_CLASS}
-        #        resources:
-        #          requests:
-        #            storage: ${NODE_VOLUME_SIZE}
+        - name: ${NODE_TYPE}-ephemeral
+          ephemeral:
+            volumeClaimTemplate:
+              metadata:
+                labels:
+                  type: ${NODE_TYPE}-ephemeral
+              spec:
+                accessModes: [ "ReadWriteOnce" ]
+                storageClassName: ${NODE_STORAGE_CLASS}
+                resources:
+                  requests:
+                    storage: ${NODE_VOLUME_SIZE}
 
         #Use hostPath to SSD mount instead for ephemeral storage
         - name: ${NODE_TYPE}-storage
           hostPath:
             # directory location on host
             path: /var/mnt/scratch
+            type: DirectoryOrCreate #Prevents errors if not there
 
       #Deployed on each type of node based on GPU type
       nodeSelector:

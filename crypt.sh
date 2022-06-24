@@ -3,8 +3,7 @@
 
 #List of secrets
 SECRETFILES="secret.env
-cert.pem
-key.pem"
+secret_dev.env"
 
 echo "ASDC DronesVL encrypted secret files"
 echo " Requires: "

@@ -49,26 +49,27 @@ nodegroup_wait $CLUSTER_BASE-A100
 #Need to re-create flannel pods after nodegroup created
 if [ $NODEGROUP_CREATED == 1 ];
 then
+  #NOTE: this needs to be done a bit later, and at least twice
+  #gpu-operator pods still struggle on a newly created nodegroup
+  #without manually running this again
   kubectl -n kube-system delete pod -l app=flannel
+  #kubectl -n kube-system delete pod -l k8s-app=calico-node
 
-  # All gpu cluster nodes need to be tainted to prevent other pods running on them!
-  #kubectl taint nodes $NODE key1=value1:NoSchedule
-  #kubectl taint nodes $NODE compute=compute-jobs-only:NoSchedule
+  #Apply some labels to the compute pods
   for node in $(kubectl get nodes -l magnum.openstack.org/role=cluster -ojsonpath='{.items[*].metadata.name}'); 
   do 
+    kubectl label nodes $node asdc.cloud.edu.au/gpu=1 --overwrite
+    #https://github.com/NVIDIA/gpu-operator/issues/322
+    kubectl label nodes $node nvidia.com/mig.config=all-disabled --overwrite
     #kubectl get pods -A -owide --field-selector spec.nodeName=$node;
-    kubectl taint nodes $node compute=true:NoSchedule
-  done
+    kubectl taint nodes $node compute=true:NoSchedule --overwrite
 
-  #Only use the new hardware for jupyterhub
-
-  for node in $(kubectl get nodes -l "nvidia.com/gpu.product in (A40,A100-PCIE-40GB)" -ojsonpath='{.items[*].metadata.name}'); 
-  do 
+    #Only use the compute hardware for jupyterhub
     #Use the compute nodes for jupyterhub pods
     #https://zero-to-jupyterhub.readthedocs.io/en/latest/administrator/optimization.html
-    kubectl label nodes $node hub.jupyter.org/node-purpose=user
+    kubectl label nodes $node hub.jupyter.org/node-purpose=user --overwrite
     #Use PreferNoSchedule so pods other than jupyterhub will still run on these nodes if they tolerate compute=true
-    kubectl taint nodes $node hub.jupyter.org/dedicated=user:PreferNoSchedule
+    #kubectl taint nodes $node hub.jupyter.org/dedicated=user:PreferNoSchedule
   done
   export NODEGROUP_CREATED=0
 fi
@@ -77,7 +78,7 @@ fi
 echo --- Phase 4c : Additional storage
 ####################################################################################################
 
-#The new nodes include a 3T volume, mount it so we can use it for scratch space
+#The new nodes include a 3T or 750G volume, mount it so we can use it for scratch space
 #(Mounts on /var/mnt/scratch)
 #TODO: MOVE THIS TO FLUX
 kubectl apply -f templates/scratch-volume-mounter.yaml
@@ -86,10 +87,6 @@ kubectl apply -f templates/scratch-volume-mounter.yaml
 echo --- Phase 4d : Deployment: NodeODM, ClusterODM
 ####################################################################################################
 #Deploy processing nodes
-
-#Get content of the setup script
-export NODE_SETUP_SCRIPT_CONTENT=$(cat node_setup.sh | sed 's/\(.*\)/    \1/')
-apply_template nodeodm-script-configmap.yaml
 
 #Deploy NodeODM nodes (all GPU now, if we need CPU only can be configured per-cluster)
 #TODO: HOW TO MOVE THIS TO FLUX?
@@ -156,9 +153,15 @@ function deploy_cluster()
 #        --max_concurrency   <number>    Place a cap on the max-concurrency option to use for each task. (default: no limit)
 #        --max_runtime   <number> Number of minutes (approximate) that a task is allowed to run before being forcibly canceled (timeout). (default: no limit)
 
-#deploy_cluster p4 $NODES_P4 Tesla-P4 "--max_images 1000" ${NODE_VOLSIZE}Gi csi-sc-cinderplugin
-deploy_cluster a40 $NODES_A40 A40 "--max_images 10000" ${NODE_VOLSIZE}Gi csi-sc-cinderplugin
-deploy_cluster a100 $NODES_A100 A100-PCIE-40GB "--max_images 10000" ${NODE_VOLSIZE}Gi csi-sc-cinderplugin
+if [ "$NODES_P4" -gt "0" ]; then
+  deploy_cluster p4 $NODES_P4 Tesla-P4 "--max_images 1000" ${NODE_VOLSIZE}Gi csi-sc-cinderplugin
+fi
+if [ "$NODES_A40" -gt "0" ]; then
+  deploy_cluster a40 $NODES_A40 A40 "--max_images 10000" ${NODE_VOLSIZE}Gi csi-sc-cinderplugin
+fi
+if [ "$NODES_A100" -gt "0" ]; then
+  deploy_cluster a100 $NODES_A100 A100-PCIE-40GB "--max_images 10000" ${NODE_VOLSIZE}Gi csi-sc-cinderplugin
+fi
 #When local-path provisioner enabled:..
 #deploy_cluster a40 $NODES_A40 A40 "--max_images 10000" 2000Gi local-path
 #deploy_cluster a100 $NODES_A100 A100-PCIE-40GB "--max_images 10000" 2000Gi local-path

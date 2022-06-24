@@ -7,12 +7,21 @@
 #Designed to use builtin shell features so
 #no packages required (telnet/netcat/nslookup etc)
 
+#Check if /var/www/scratch is mounted to ext4 localdisk volume
+if df --type=ext4 | grep "localdisk" ; then
+  #Use /var/www/localdisk
+  ln -s /var/www/localdisk /var/www/scratch
+else
+  #Use fallback cinder volume /var/www/ephemeral
+  ln -s /var/www/ephemeral /var/www/scratch
+fi
+
 #Fix the tmp path storage issue
 #(writes to ./tmp in /var/www, which fills ethemeral storage of docker image and node)
 #(replace this with symlink to the persistent volume)
 if ! [ -L /var/www/tmp ] ; then
   rm -rf /var/www/data;
-  mkdir -p /var/www/scratch nodes;
+  mkdir -p /var/www/scratch/nodes;
   ln -s /var/www/scratch/nodes /var/www/data;
 
   rm -rf /var/www/tmp;

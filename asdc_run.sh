@@ -24,9 +24,6 @@ source settings.env
 echo --- Phase 1 : Cluster Launch
 ####################################################################################################
 
-#Use our config file from openstack magnum for kubectl
-export KUBECONFIG=$(pwd)/secrets/kubeconfig
-
 #If secrets/kubeconfig exists, then skip cluster build, remove it to re-create
 if [ ! -s "${KUBECONFIG}" ] || ! grep "${CLUSTER}" ${KUBECONFIG};
 then
@@ -66,7 +63,7 @@ then
   get_status
   if ! cluster_check "CREATE_FAILED" && ! cluster_launched; then
     #Create the cluster from default template
-    openstack coe cluster create --cluster-template $TEMPLATE --keypair $KEYPAIR --master-count 1 --node-count $APP_NODES $CLUSTER
+    openstack coe cluster create --cluster-template $TEMPLATE --keypair $KEYPAIR --master-count $MASTER_NODES --node-count $APP_NODES $CLUSTER
     echo "Cluster create initiated..."
   fi
 
@@ -87,6 +84,7 @@ then
   echo ""
 
   #Wait for the load balancer to be provisioned
+  #(if we set MASTER_NODES > 1, stays in UNHEALTHY and gets stuck here...)
   STACK_ID=$(openstack coe cluster show $CLUSTER -f value -c stack_id)
   K_FLOATING_IP=$(openstack stack output show $STACK_ID api_address -c output_value -f value)
   #Ping no longer responding
@@ -101,25 +99,6 @@ then
   #Once the cluster is running, get params and the config for kubectl
   echo "Attempting to configure cluster";
   #Finally setup the environment and export kubernetes config
-  : '
-  STACK_ID=$(openstack coe cluster show $CLUSTER -f value -c stack_id)
-  K_FLOATING_IP=$(openstack stack output show $STACK_ID api_address -c output_value -f value)
-  PORT_ID=$(openstack floating ip show $K_FLOATING_IP -c port_id -f value)
-
-  #Open the port if not already done
-  SG_ID=$(openstack security group show kubernetes-api -c id -f value)
-  if ! openstack port show $PORT_ID -c security_group_ids -f value | grep $SG_ID
-  then
-    echo "SETTING PORT"
-    #THIS STILL FAILS... DOESNT SEEM TO MATTER ANYWAY AS CAN ACCESS WITH IP???
-    #ResourceNotFound: 404: Client Error for url: https://neutron.rc.nectar.org.au:9696/v2.0/ports/1cfcf6b5-cf52-476b-9598-01e49ffffce6, Security group bde2e01a-9c02-4e90-b9af-dcba62f47660 does not exist
-    openstack port set --security-group kubernetes-api $PORT_ID
-  else
-    echo "PORT SET ALREADY"
-  fi
-  '
-
-  #Create the config
   openstack coe cluster config $CLUSTER
   mv config ${KUBECONFIG}
   chmod 600 ${KUBECONFIG}
@@ -130,7 +109,7 @@ then
   kubectl -n kube-system delete pod -l app=flannel
 
   #Calico - reset pods to try and fix network issues?
-  #kubectl get pods --all-namespaces -owide --show-labels
+  kubectl get pods --all-namespaces -owide --show-labels
   #kubectl -n kube-system delete pod -l k8s-app=calico-node
 
 else
@@ -174,9 +153,6 @@ export DB_VOLUME_ID=$VOL_ID
 echo --- Phase 3 : Deployment: Flux apps - Prepare configmaps and secrets for flux
 # ####################################################################################################
 
-#NOTE!!! cluster_deploy taints need to be applied before starting flux apps
-# or they will run on the GPU nodes!!! (Alternatively, wait until after this before starting with cluster_create)
-
 #Update ConfigMap/Secret data
 ./asdc_update.sh
 
@@ -187,21 +163,10 @@ echo --- Phase 3 : Deployment: Flux apps - Prepare configmaps and secrets for fl
 #(OK: Adding image automation features: https://fluxcd.io/docs/guides/image-update/#configure-image-scanning)
 flux bootstrap ${FLUX_LIVE_REPO_TYPE} --owner=${FLUX_LIVE_REPO_OWNER} --repository=${FLUX_LIVE_REPO} --team=${FLUX_LIVE_REPO_TEAM} --path=${FLUX_LIVE_REPO_PATH} --read-write-key --components-extra=image-reflector-controller,image-automation-controller
 
-#Info...
-#flux get all
-
-#See/Suspend/resume
-#flux get helmreleases -n jupyterhub
-#flux suspend/resume helmrelease jupyterhub -n jupyterhub
-#flux suspend/resume kustomization apps
-
-#Update immediately
-#flux reconcile kustomization cesium-asdc --with-source
-#flux reconcile kustomization apps --with-source
-#flux reconcile helmrelease jupyterhub -n jupyterhub
-
-#BUG: autohttps seems to fail to get letsencrypt cert on first boot, need to delete and let them run again
-#kubectl delete pod autohttps-##### -n jupyterhub
+#SMTP
+#https://artifacthub.io/packages/helm/docker-postfix/mail
+#helm repo add bokysan https://bokysan.github.io/docker-postfix/
+#helm upgrade --install --set persistence.enabled=false --set config.general.ALLOW_EMPTY_SENDER_DOMAINS=1 mail bokysan/mail
 
 ####################################################################################################
 echo --- Phase 4 : Start the cluster nodes
@@ -210,14 +175,4 @@ echo --- Phase 4 : Start the cluster nodes
 #Create the compute cluster
 source cluster_create.sh
 
-####################################################################################################
-echo --- Phase 5 : Cluster config and GPU setup, deploy nodes etc
-####################################################################################################
-
-source cluster_deploy.sh
-
-#SMTP
-#https://artifacthub.io/packages/helm/docker-postfix/mail
-#helm repo add bokysan https://bokysan.github.io/docker-postfix/
-#helm upgrade --install --set persistence.enabled=false --set config.general.ALLOW_EMPTY_SENDER_DOMAINS=1 mail bokysan/mail
 
