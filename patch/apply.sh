@@ -60,6 +60,8 @@ function cp_k8s()
 
 if [ $HOSTNAME != 'webapp-worker-0' ]; then
 
+  exec_k8s "mkdir -p /webodm/app/media/patch/"
+  exec_k8s "mkdir -p /webodm/app/media/plugins/"
   #COPY PATCHED FILES TO POD VOLUME
   echo "ON DEV PC"
   source $BASEPATH/settings.env
@@ -74,9 +76,9 @@ if [ $HOSTNAME != 'webapp-worker-0' ]; then
     cp_k8s "$WEBODMPATH/$f" "/webodm/app/media/patch/$f"
   done
   
-  #Update plugin
+  #Update plugin (clone / pull if exists)
   echo "Updating plugin"
-  exec_k8s "cd /webodm/app/media/plugins/asdc; git pull"
+  exec_k8s "cd /webodm/app/media/plugins/; git -C asdc pull || git clone https://github.com/auscalabledronecloud/asdc_plugin.git asdc"
 
   #To install patch, kill and restart main processes in pod...
   #echo "Kill celery"
@@ -94,7 +96,6 @@ else
 
   #INSTALL PATCHED FILES IN POD
   echo "ON WEBAPP"
-  mkdir -p /webodm/app/media/patch/
   cd /webodm/app/media/patch/
   mkdir /webodm/auth0 #Missing dir
   for f in $FILELIST
