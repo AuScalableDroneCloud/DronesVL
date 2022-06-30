@@ -42,11 +42,18 @@ echo --- Phase 4a : Cluster node taints
 ####################################################################################################
 
 #Until bug with nodegroup creation fixed, may have to skip this
-#nodegroup_wait $CLUSTER_BASE-P4
-nodegroup_wait $CLUSTER_BASE-A40
-nodegroup_wait $CLUSTER_BASE-A100
+if [ "$NODES_P4" -gt "0" ]; then
+  nodegroup_wait $CLUSTER_BASE-P4
+fi
+if [ "$NODES_A40" -gt "0" ]; then
+  nodegroup_wait $CLUSTER_BASE-A40
+fi
+if [ "$NODES_A100" -gt "0" ]; then
+  nodegroup_wait $CLUSTER_BASE-A100
+fi
 
 #Need to re-create flannel pods after nodegroup created
+export NODEGROUP_CREATED=1 #Need to force this if interrupted
 if [ $NODEGROUP_CREATED == 1 ];
 then
   #NOTE: this needs to be done a bit later, and at least twice
