@@ -45,7 +45,7 @@ then
     #See: https://docs.openstack.org/magnum/latest/user/
     echo "Creating cluster template: $TEMPLATE"
 
-    #Tried calico for dns issues and slow image pulls, didn't resolve
+    #Use calico to enable NetworkPolicy
     #NWDRIVER="calico"
     NWDRIVER="flannel"
 
@@ -154,14 +154,25 @@ echo --- Phase 3 : Deployment: Flux apps - Prepare configmaps and secrets for fl
 # ####################################################################################################
 
 #Update ConfigMap/Secret data
+kubectl create namespace flux-system
 ./asdc_update.sh
 
 # Bootstrap flux.
 #(Requires github personal access token with repo rights in GITHUB_TOKEN)
 
+#See re: multiple environments
+#https://github.com/fluxcd/flux2-kustomize-helm-example#identical-environments
+
 # Installs flux if it's not already present, using the configured live repo. This is idempotent.
 #(OK: Adding image automation features: https://fluxcd.io/docs/guides/image-update/#configure-image-scanning)
-flux bootstrap ${FLUX_LIVE_REPO_TYPE} --owner=${FLUX_LIVE_REPO_OWNER} --repository=${FLUX_LIVE_REPO} --team=${FLUX_LIVE_REPO_TEAM} --path=${FLUX_LIVE_REPO_PATH} --read-write-key --components-extra=image-reflector-controller,image-automation-controller
+flux bootstrap ${FLUX_LIVE_REPO_TYPE} \
+  --owner=${FLUX_LIVE_REPO_OWNER} \
+  --repository=${FLUX_LIVE_REPO} \
+  --branch=${FLUX_LIVE_REPO_BRANCH} \
+  --team=${FLUX_LIVE_REPO_TEAM} \
+  --path=${FLUX_LIVE_REPO_PATH} \
+  --read-write-key \
+  --components-extra=image-reflector-controller,image-automation-controller
 
 #SMTP
 #https://artifacthub.io/packages/helm/docker-postfix/mail
