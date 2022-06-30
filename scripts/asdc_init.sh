@@ -25,13 +25,40 @@ done
 echo $WO_SSL
 echo $WO_SSL_KEY
 echo $WO_SSL_CERT
-mkdir -p /webodm/nginx/ssl
+mkdir -p /webodm/nginx/ssl/${WO_HOST}
 
-#Now keeping ssl certs in /webodm/app/media/ssl
-if [ ! -s "/webodm/app/media/ssl/cert.pem" ]
+function start_server()
+{
+  #Runs a test server on given port
+  #Args:
+  PORT=$1 #Internal port
+  echo "Starting test server {PORT}"
+  python -m http.server ${PORT} &
+}
+
+function test_server()
+{
+  #Wait for a response from test server
+  #Args:
+  URL=$1  #External URL:port
+
+  echo "Waiting for access via load balancer at ${URL}"
+  while ! timeout 2.0 curl ${URL} &> /dev/null;
+    do printf '*';
+    sleep 5;
+  done;
+  echo ""
+
+}
+
+#Now keeping ssl certs in /webodm/app/store/ssl
+CERT_STORE=/webodm/app/media/ssl/${WO_HOST}
+#CERT_STORE=/webodm/app/store/ssl/${WO_HOST}
+#CERT_STORE=/webodm/app/media/ssl
+if [ ! -s "${CERT_STORE}/cert.pem" ]
 then
-  mkdir -p /webodm/app/media/ssl
-  cd /webodm/app/media/ssl
+  mkdir -p ${CERT_STORE}
+  cd ${CERT_STORE}
 
   #By default, webodm will attempt to setup SSL when enabled and no cert or key passed
   #This does not work until the loadbalancer is fully provisioned,
@@ -39,18 +66,15 @@ then
   #Then manually run letsencrypt-autogen.sh to generate the certificates
   rm *.pem
 
-  echo "Starting test server"
-  python -m http.server 8000 & # listen on the https port 8000:443
+  #Wait for the server to be reachable
+  #(this can take a while while the service/load balancer starts)
+  #Test both HTTPS (443:8000) and HTTP (80:8080) ports
+  start_server 8000
+  start_server 8080
+  test_server http://${WO_HOST}:443
+  test_server http://${WO_HOST}
 
-  #Wait for the server to be reachable on https
-  #(THIS CAN TAKE A WHILE)
-  echo "Waiting for initial https port via load balancer at http://${WO_HOST}:443"
-  while ! timeout 2.0 curl http://${WO_HOST}:443 &> /dev/null;
-    do printf '*';
-    sleep 5;
-  done;
-  echo ""
-  #Kill running server
+  #Kill running servers
   killall python
   sleep 5;
 
@@ -68,12 +92,12 @@ then
   done;
 
   #Copy new (symlinked) certs
-  cp /webodm/nginx/ssl/*.pem /webodm/app/media/ssl/
+  cp /webodm/nginx/ssl/*.pem ${CERT_STORE}
 fi
 
 # Replace symlinks if not present
-ln -s /webodm/app/media/ssl/cert.pem /webodm/nginx/ssl/cert.pem
-ln -s /webodm/app/media/ssl/key.pem /webodm/nginx/ssl/key.pem
+ln -s ${CERT_STORE}/cert.pem /webodm/nginx/ssl/cert.pem
+ln -s ${CERT_STORE}/key.pem /webodm/nginx/ssl/key.pem
 
 cd /webodm
 
