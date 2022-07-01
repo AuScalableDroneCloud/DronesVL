@@ -51,62 +51,63 @@ function test_server()
 
 }
 
-#Now keeping ssl certs in /webodm/app/store/ssl
-CERT_STORE=/webodm/app/media/ssl/${WO_HOST}
-#CERT_STORE=/webodm/app/store/ssl/${WO_HOST}
-#CERT_STORE=/webodm/app/media/ssl
-if [ ! -s "${CERT_STORE}/cert.pem" ]
-then
-  mkdir -p ${CERT_STORE}
-  cd ${CERT_STORE}
-
-  #By default, webodm will attempt to setup SSL when enabled and no cert or key passed
-  #This does not work until the loadbalancer is fully provisioned,
-  #so initially we loop until the HTTPS port is open and responding,
-  #Then manually run letsencrypt-autogen.sh to generate the certificates
-  rm *.pem
-
-  #Wait for the server to be reachable
-  #(this can take a while while the service/load balancer starts)
-  #Test both HTTPS (443:8000) and HTTP (80:8080) ports
-  start_server 8000
-  start_server 8080
-  test_server http://${WO_HOST}:443
-  test_server http://${WO_HOST}
-
-  #Kill running servers
-  killall python
-  sleep 5;
-
-  #Attempt up to 5 times to get certs
-  for i in {0..5}
-  do
-    echo "~~~~~~~~~~~~~~~~~~~~~~ RUNNING CERTBOT TO GET CERTS ~~~~~~~~~~~~~~~~~~~~~~"
-    WO_SSL_KEY='' /webodm/nginx/letsencrypt-autogen.sh
-    if [ ! -s "/webodm/nginx/ssl/cert.pem" ];
-    then
-      sleep 60;
-    else
-      break
-    fi
-  done;
-
-  #Copy new (symlinked) certs
-  cp /webodm/nginx/ssl/*.pem ${CERT_STORE}
-fi
-
-# Replace symlinks if not present
-ln -s ${CERT_STORE}/cert.pem /webodm/nginx/ssl/cert.pem
-ln -s ${CERT_STORE}/key.pem /webodm/nginx/ssl/key.pem
-
-cd /webodm
-
 # Main loop
+# - check certs, create if required
 # - apply patch
 # - run webodm
 # (by killing nginx process, patch update will be applied)
 while :
 do
+  #Now keeping ssl certs in /webodm/app/store/ssl
+  CERT_STORE=/webodm/app/media/ssl/${WO_HOST}
+  #CERT_STORE=/webodm/app/store/ssl/${WO_HOST}
+  #CERT_STORE=/webodm/app/media/ssl
+  if [ ! -s "${CERT_STORE}/cert.pem" ]
+  then
+    mkdir -p ${CERT_STORE}
+    cd ${CERT_STORE}
+
+    #By default, webodm will attempt to setup SSL when enabled and no cert or key passed
+    #This does not work until the loadbalancer is fully provisioned,
+    #so initially we loop until the HTTPS port is open and responding,
+    #Then manually run letsencrypt-autogen.sh to generate the certificates
+    rm *.pem
+
+    #Wait for the server to be reachable
+    #(this can take a while while the service/load balancer starts)
+    #Test both HTTPS (443:8000) and HTTP (80:8080) ports
+    start_server 8000
+    start_server 8080
+    test_server http://${WO_HOST}:443
+    test_server http://${WO_HOST}
+
+    #Kill running servers
+    killall python
+    sleep 5;
+
+    #Attempt up to 5 times to get certs
+    for i in {0..5}
+    do
+      echo "~~~~~~~~~~~~~~~~~~~~~~ RUNNING CERTBOT TO GET CERTS ~~~~~~~~~~~~~~~~~~~~~~"
+      WO_SSL_KEY='' /webodm/nginx/letsencrypt-autogen.sh
+      if [ ! -s "/webodm/nginx/ssl/cert.pem" ];
+      then
+        sleep 60;
+      else
+        break
+      fi
+    done;
+
+    #Copy new (symlinked) certs
+    cp /webodm/nginx/ssl/*.pem ${CERT_STORE}
+  fi
+
+  # Replace symlinks if not present
+  ln -s ${CERT_STORE}/cert.pem /webodm/nginx/ssl/cert.pem
+  ln -s ${CERT_STORE}/key.pem /webodm/nginx/ssl/key.pem
+
+  cd /webodm
+
   /webodm/app/media/patch/apply.sh
   /webodm/start.sh
 done
