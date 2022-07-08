@@ -6,6 +6,30 @@
 #- Added patch/apply.sh to copy in selected patched files
 #- Added loop to apply patches and restart if main gunicorn process is killed 
 
+cd /webodm/app/media/
+#Clone the init files if not yet a git repo
+if [ ! -s ".git/config" ]
+then
+  #This will work even if /webodm/app/media is not empty dir
+  git config --global init.defaultBranch main
+  git config pull.rebase false
+  git init
+  git remote add origin https://github.com/auscalabledronecloud/asdc-init.git
+  git fetch
+  git reset origin/main --hard
+  git branch --set-upstream-to=origin/main main
+fi
+
+#Update the init files
+git submodule update --init --recursive
+git pull --recurse-submodules 
+
+#Setup project storage link to s3 store
+ln -s /webodm/app/store/project /webodm/app/media/project
+#Copy certs if any
+mkdir -p /webodm/app/media/ssl/
+cp -R /webodm/app/store/ssl/* /webodm/app/media/ssl/
+
 #Wait for db server
 /webodm/wait-for-postgres.sh db
 
@@ -106,8 +130,10 @@ do
   ln -s ${CERT_STORE}/cert.pem /webodm/nginx/ssl/cert.pem
   ln -s ${CERT_STORE}/key.pem /webodm/nginx/ssl/key.pem
 
+  #Update the patch files
+  cd /webodm/app/media
+  git pull --recurse-submodules 
   cd /webodm
-
-  /webodm/app/media/patch/apply.sh
+  /webodm/app/media/apply.sh
   /webodm/start.sh
 done
