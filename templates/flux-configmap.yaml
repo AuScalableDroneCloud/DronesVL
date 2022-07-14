@@ -34,6 +34,9 @@ data:
   JHUB_HOST: ${JHUB_HOST}
   JHUB_LOADBALANCER_IP: ${JHUB_LOADBALANCER_IP}
 
+  #NodeODM
+  NODE_VOLUME_SIZE: "${NODE_VOLUME_SIZE}Gi"
+
 ---
 apiVersion: v1
 kind: Secret
