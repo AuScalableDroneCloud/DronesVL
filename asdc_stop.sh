@@ -19,5 +19,5 @@ fi
 openstack coe cluster delete $CLUSTER
 
 #Remove the config file
-rm ${KUBECONFIG
+rm ${KUBECONFIG}
 
