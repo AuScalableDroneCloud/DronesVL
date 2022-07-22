@@ -27,7 +27,7 @@ if ! command -v kubectl &> /dev/null
 then
   #Add cwd to path so kubectl can be run without dir
   PATH=$PATH:$(pwd)
-  if [ "$1" == "force" ] || [! command -v kubectl &> /dev/null ]
+  if ! command -v kubectl &> /dev/null
   then
     echo "kubectl could not be found! attempting to download..."
     #KUBE_TAG=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
