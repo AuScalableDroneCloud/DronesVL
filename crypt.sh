@@ -37,10 +37,16 @@ PUBKEY=${KEYPAIR}.pub
 PRIVKEY=secrets/${KEYPAIR}.pem
 
 #If private key file doesn't exist, inform user
-if [ ! -f "${PRIVKEY}" ];
-then
-  echo "Please download the private key and store here as: ${PRIVKEY}"
-  exit
+if [ ! -f "${PRIVKEY}" ]; then
+  #If keybase command available, try and get the key
+  if command -v keybase &> /dev/null; then
+    keybase fs cp /keybase/team/asdc.dev/${KEYPAIR}.pem ./secrets/
+  fi
+
+  if [ ! -f "${PRIVKEY}" ]; then
+    echo "Please download the private key and store here as: ${PRIVKEY}"
+    #exit
+  fi
 fi
 
 #Ensure not widely readable
