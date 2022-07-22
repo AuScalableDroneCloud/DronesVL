@@ -7,6 +7,7 @@ kubeconfig
 kubeconfig-dev
 "
 
+echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 echo "ASDC DronesVL encrypted secret files"
 echo " Requires: "
 echo ""
@@ -27,6 +28,7 @@ echo " - If the unencrypted secrets ARE present,"
 echo "   they will be re-encrypted, ready to be committed and pushed"
 echo " - If the 'push' arg is provided,"
 echo "   changes will be committed and pushed automatically"
+echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
 #Use the KEYPAIR from settings or default to ASDC_ODM
 KEYPAIR="${KEYPAIR:-ASDC_ODM}"
@@ -40,6 +42,7 @@ PRIVKEY=secrets/${KEYPAIR}.pem
 if [ ! -f "${PRIVKEY}" ]; then
   #If keybase command available, try and get the key
   if command -v keybase &> /dev/null; then
+    echo "Attempting to get key from keybase team folder..."
     keybase fs cp /keybase/team/asdc.dev/${KEYPAIR}.pem ./secrets/
   fi
 
