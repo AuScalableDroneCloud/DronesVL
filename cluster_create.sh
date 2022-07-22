@@ -50,13 +50,13 @@ function create_cluster()
 }
 
 if [ "$NODES_P4" -gt "0" ]; then
-  create_cluster $CLUSTER_BASE-P4 $CLUSTER_P4_FLAVOUR $NODES_P4 cluster
+  create_cluster $NODEGROUP_BASE-P4 $CLUSTER_P4_FLAVOUR $NODES_P4 cluster
 fi
 if [ "$NODES_A40" -gt "0" ]; then
-  create_cluster $CLUSTER_BASE-A40 $CLUSTER_A40_FLAVOUR $NODES_A40 cluster
+  create_cluster $NODEGROUP_BASE-A40 $CLUSTER_A40_FLAVOUR $NODES_A40 cluster
 fi
 if [ "$NODES_A100" -gt "0" ]; then
-  create_cluster $CLUSTER_BASE-A100 $CLUSTER_A100_FLAVOUR $NODES_A100 cluster
+  create_cluster $NODEGROUP_BASE-A100 $CLUSTER_A100_FLAVOUR $NODES_A100 cluster
 fi
 
 
@@ -70,8 +70,8 @@ kubectl get nodes -l magnum.openstack.org/role=cluster
 #kubectl get nodes -l nvidia.com/gpu.product=Tesla-P4
 
 #To resize nodegroups
-#openstack coe cluster resize $CLUSTER --nodegroup $CLUSTER_BASE-A40 2
-#openstack coe cluster resize $CLUSTER --nodegroup $CLUSTER_BASE-A100 1
+#openstack coe cluster resize $CLUSTER --nodegroup $NODEGROUP_BASE-A40 2
+#openstack coe cluster resize $CLUSTER --nodegroup $NODEGROUP_BASE-A100 1
 
 #Create the compute cluster
 #source cluster_create.sh
@@ -122,13 +122,13 @@ echo --- Phase 5a : Cluster node taints
 
 #Until bug with nodegroup creation fixed, may have to skip this
 if [ "$NODES_P4" -gt "0" ]; then
-  nodegroup_wait $CLUSTER_BASE-P4
+  nodegroup_wait $NODEGROUP_BASE-P4
 fi
 if [ "$NODES_A40" -gt "0" ]; then
-  nodegroup_wait $CLUSTER_BASE-A40
+  nodegroup_wait $NODEGROUP_BASE-A40
 fi
 if [ "$NODES_A100" -gt "0" ]; then
-  nodegroup_wait $CLUSTER_BASE-A100
+  nodegroup_wait $NODEGROUP_BASE-A100
 fi
 
 #Need to re-create flannel pods after nodegroup created
