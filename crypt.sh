@@ -28,8 +28,8 @@ echo "   they will be re-encrypted, ready to be committed and pushed"
 echo " - If the 'push' arg is provided,"
 echo "   changes will be committed and pushed automatically"
 
-#Use the KEYPAIR from settings
-source settings.env
+#Use the KEYPAIR from settings or default to ASDC_ODM
+KEYPAIR="${KEYPAIR:-ASDC_ODM}"
 
 #Public key
 PUBKEY=${KEYPAIR}.pub
