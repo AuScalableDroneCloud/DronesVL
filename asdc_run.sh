@@ -141,10 +141,6 @@ function get_volume()
   fi
 }
 
-#Create volume for server/webapp
-get_volume $WEBAPP_VOLUME_SIZE web-storage
-export WEB_VOLUME_ID=$VOL_ID
-
 #Create volume for db
 get_volume $DB_VOLUME_SIZE db-storage
 export DB_VOLUME_ID=$VOL_ID
