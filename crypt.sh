@@ -3,6 +3,8 @@
 
 #List of secrets
 SECRETFILES="secret.env
+kubeconfig
+kubeconfig-dev
 "
 
 echo "ASDC DronesVL encrypted secret files"
@@ -23,6 +25,8 @@ echo "   or the encrypted files are newer, "
 echo "   they will be decrypted"
 echo " - If the unencrypted secrets ARE present,"
 echo "   they will be re-encrypted, ready to be committed and pushed"
+echo " - If the 'push' arg is provided,"
+echo "   changes will be committed and pushed automatically"
 
 #Use the KEYPAIR from settings
 source settings.env
@@ -69,19 +73,21 @@ do
     #Decrypt the file
     echo "DECRYPTING $secret"
     ./sshenc.sh -s ${PRIVKEY} < $enc > $dec
-    #Ensure not widely readable
-    chmod 600 $dec
   else
     #Encrypt with public key:
     echo "ENCRYPTING $secret"
     ./sshenc.sh -p ${PUBKEY} < $dec > $enc
   fi
+  #Ensure not widely readable
+  chmod 600 $dec
 done
 
 #Secret repo update...
-#pushd secrets/encrypted
-#git stage *
-#git commit -m "Updating secrets"
-#git push
-#popd
+if [ "$1" = "push" ]; then
+  pushd secrets/encrypted
+  git stage *
+  git commit -m "Updating secrets"
+  git push
+  popd
+fi
 

@@ -99,9 +99,9 @@ then
   #Once the cluster is running, get params and the config for kubectl
   echo "Attempting to configure cluster";
   #Finally setup the environment and export kubernetes config
-  openstack coe cluster config $CLUSTER
-  mv config ${KUBECONFIG}
-  chmod 600 ${KUBECONFIG}
+  openstack coe cluster config --dir ./secrets $CLUSTER
+  #Update secrets repo...
+  ./crypt.sh push
 
   # DNS fails on newer kubernetes with fedora-coreos-32 image, need to restart flannel pods...
   # See: https://tutorials.rc.nectar.org.au/kubernetes/09-troubleshooting
