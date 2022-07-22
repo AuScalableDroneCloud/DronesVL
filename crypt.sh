@@ -48,8 +48,7 @@ chmod 600 ${PRIVKEY}
 
 #Get the repo and update
 pushd secrets
-#git clone git@github.com:AuScalableDroneCloud/secrets.git encrypted
-git clone https://github.com/AuScalableDroneCloud/secrets.git encrypted
+git clone git@github.com:AuScalableDroneCloud/secrets.git encrypted
 cd encrypted
 git pull
 popd
