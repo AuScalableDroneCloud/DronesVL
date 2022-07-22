@@ -46,7 +46,7 @@ then
 fi
 
 #Install flux if not found
-if command -v flux &> /dev/null
+if ! command -v flux &> /dev/null
 then
   echo "flux could not be found! attempting to download..."
   curl -s https://fluxcd.io/install.sh -o flux_install.sh
