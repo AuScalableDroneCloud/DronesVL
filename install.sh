@@ -1,5 +1,9 @@
 #!/bin/bash
-source settings.env #For KUBE_TAG
+if [ -z ${KUBE_TAG+x} ];
+then
+  source settings.env #For KUBE_TAG
+fi
+
 #Install openstack python packages, use virtual env or user 
 if env |grep VIRTUAL_ENV;
 then
