@@ -14,8 +14,16 @@ else
   pip install --user -r requirements.txt
 fi
 
+
+if [ "$1" == "force" ];
+then
+  rm kubectl
+  rm helm
+  rm flux
+fi
+
 #Install kubectl + helm if not present
-if [ "$1" == "force" ] || [ ! command -v kubectl &> /dev/null ]
+if ! command -v kubectl &> /dev/null
 then
   #Add cwd to path so kubectl can be run without dir
   PATH=$PATH:$(pwd)
@@ -29,7 +37,7 @@ then
 fi
 
 #Install helm if not found
-if [ "$1" == "force" ] || [ ! command -v helm &> /dev/null ]
+if ! command -v helm &> /dev/null
 then
   echo "helm could not be found! attempting to download..."
   curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
@@ -38,7 +46,7 @@ then
 fi
 
 #Install flux if not found
-if [ "$1" == "force" ] || [ ! command -v flux &> /dev/null ]
+if command -v flux &> /dev/null
 then
   echo "flux could not be found! attempting to download..."
   curl -s https://fluxcd.io/install.sh -o flux_install.sh
