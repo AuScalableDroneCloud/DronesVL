@@ -99,7 +99,8 @@ then
   #Once the cluster is running, get params and the config for kubectl
   echo "Attempting to configure cluster";
   #Finally setup the environment and export kubernetes config
-  openstack coe cluster config --dir ./secrets $CLUSTER
+  openstack coe cluster config $CLUSTER
+  mv config $KUBECONFIG
   #Update secrets repo...
   ./crypt.sh push
 
