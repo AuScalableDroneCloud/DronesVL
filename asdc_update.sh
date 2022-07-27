@@ -2,25 +2,11 @@
 # OpenDroneMap on k8s for ASDC DronesVL
 # Owen Kaluza, Monash University, August 2020
 #
-# - This script contains several operations to apply to the running cluster, 
-#   such as restarting pods for updates or reconfiguring the live cluster
+# - This script applies any changes to deployment settings to the live cluster
 #
 # ./asdc_update.sh - update the configmaps and secrets only
 #                    use this to quickly apply modified values to the live cluster.
 #
-# ./asdc_update.sh webapp - update the webapp/worker pod
-#                           use this when the image has been modified,
-#                           to get the latest code into live instance
-#
-# ./asdc_update.sh ip - unassign floating ip from webapp loadbalancer service,
-#                       always use this before deleting webapp-service or shutting down cluster
-#                       (is called by asdc_stop.sh so don't need to run explicitly in this case)
-#
-# ./asdc_update.sh db-storage-resize - resize the database storage volume to value in settings.env
-#                       resizes the openstack cinder volume, then runs a pod that calls resize2fs
-#                       to expand the filesystem to match
-#
-# It is intended to add further options for other components
 ####################################################################################################
 
 if [[ ${BASH_SOURCE[0]} != $0 ]]; then
@@ -65,61 +51,29 @@ echo "Upating ConfigMaps and Secret data for FluxCD..."
 #Get content of the setup scripts
 export NODEODM_SETUP_SCRIPT_CONTENT=$(cat scripts/node_setup.sh | sed 's/\(.*\)/    \1/')
 export WEBODM_SETUP_SCRIPT_CONTENT=$(cat scripts/asdc_init.sh | sed 's/\(.*\)/    \1/')
+export DATABASE_CHECK_SCRIPT_CONTENT=$(cat scripts/db_check.sh | sed 's/\(.*\)/    \1/')
 
 #Export all required settings env variables to this ConfigMap
 apply_template flux-configmap.yaml
+
 #####################################################
-
-if [ $# -eq 0 ]
-then
-  echo "No arguments supplied, no further tasks, exiting"
-  exit
-fi
-
-if [ -z ${KUBECONFIG+x} ];
-then
-  echo "KUBECONFIG is unset, run : source asdc_run.sh to init cluster";
-  exit
-fi
-
-if [ "$1" = "webapp" ];
-then
-  #Delete the worker pod to force rebuild
-  kubectl delete pod webapp-worker
-
-  echo "webapp-worker deleted successfully, running asdc_run.sh to re-create and initialise the webapp pod..."
-  source asdc_run.sh
-
-elif [ "$1" = "tusd" ];
-then
-  helm uninstall tusd
-  echo "tusd deleted successfully, re-installing..."
-  kubectl apply -f uppy/s3-secret.yaml
-  kubectl apply -f uppy/tusd-pvc.yaml
-  helm install tusd --wait -f uppy/tusd-values.yaml skm/tusd
-
-elif [ "$1" = "db-storage-resize" ];
-then
-  #Resize the db-storage volume (experimental)
-  # first set the new volume size in settings.env and run 'source settings.env'
+echo "Checking database volume size..."
+#####################################################
+#Check DB storage volume size has not been increased in settings.env
+DBSIZE=$(openstack volume show db-storage -f value -c size)
+if [ ${DB_VOLUME_SIZE} -gt ${DBSIZE} ]; then 
+  echo "RESIZING DB VOLUME, delete pods..."
   kubectl delete deployment db
+  echo "sleep 10"
+  sleep 10
+  echo "Delete pv/pvc"
   kubectl delete pvc db-pvc
   kubectl delete pv db-volume
-
-  openstack volume set --size ${DB_VOLUME_SIZE} db-storage
-
-  #Re-apply the volume sizes to volumes/claims
-  export DB_VOLUME_ID=$(openstack volume show db-storage -c id -f value)
-  apply_template db-volume.yaml
-
-  #Re-create with resizer pod
-  #(runs privileged and uses resize2fs to resize the ext4 fs)
-  kubectl create -f utils/resize-dbvolume.yaml
-
+  echo "sleep 5"
   sleep 5
-
-  #Re-deploy database
-  apply_template db-deployment.yaml
-
+  echo "Resize now"
+  openstack volume set --size ${DB_VOLUME_SIZE} db-storage
+  #Restart
+  flux reconcile kustomization apps --with-source
 fi
 

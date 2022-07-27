@@ -79,6 +79,7 @@ data:
 ${NODEODM_SETUP_SCRIPT_CONTENT}
   asdc_init.sh: |
 ${WEBODM_SETUP_SCRIPT_CONTENT}
-
+  db_check.sh: |
+${DATABASE_CHECK_SCRIPT_CONTENT}
 
 
