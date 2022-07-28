@@ -18,32 +18,6 @@ fi
 source settings.env
 
 #####################################################
-echo "Configuring storage..."
-#####################################################
-
-# Create StorageClasses for dynamic provisioning
-#apply_template storage-classes.yaml
-
-# csi-rclone config secrets
-#apply_template rclone-secret.yaml #Old rclone csi - deprecated
-apply_template csi-s3-secret.yaml #New version k8s-csi-s3
-
-#AWS S3 setup - required if tusd is to use object storage
-#Also now used for filestash testing
-#apply_template s3-secret.yaml
-
-#MOVED TO FLUX
-#https://github.com/yandex-cloud/k8s-csi-s3
-#https://github.com/yandex-cloud/k8s-csi-s3/tree/master/deploy/helm
-#helm install --namespace kube-system csi-s3 ./k8s-csi-s3/deploy/helm/
-
-#Use the plain k8s scripts as this will work better in flux
-#kubectl create -f k8s-csi-s3/deploy/kubernetes/csi-s3.yaml
-#kubectl create -f k8s-csi-s3/deploy/kubernetes/attacher.yaml
-#kubectl create -f k8s-csi-s3/deploy/kubernetes/provisioner.yaml
-#kubectl create -f k8s-csi-s3/deploy/kubernetes/examples/storageclass.yaml
-
-#####################################################
 echo "Upating ConfigMaps and Secret data for FluxCD..."
 #####################################################
 
@@ -73,7 +47,8 @@ if [ ${DB_VOLUME_SIZE} -gt ${DBSIZE} ]; then
   sleep 5
   echo "Resize now"
   openstack volume set --size ${DB_VOLUME_SIZE} db-storage
-  #Restart
-  flux reconcile kustomization apps --with-source
 fi
+
+#Apply changes
+flux reconcile kustomization apps --with-source
 
