@@ -42,16 +42,10 @@ do
 
   cd /webodm
 
+  #Applying patch on dev/prod for now as some changes are neccessary
   #Only patch on dev, production changes need to be in image
-  if [ "$WO_HOST" = "dev.asdc.cloud.edu.au" ]; then
-    echo Running patch on $HOSTNAME
-    #INSTALL PATCHED FILES IN POD
-    cp -R /webodm/app/media/patch/files/* /webodm/
-    pip install -r requirements.txt
-    webpack 
-    python manage.py collectstatic --noinput
-    python manage.py rebuildplugins
-  fi
+  echo Running patch on $HOSTNAME
+  /webodm/app/media/patch/apply.sh
 
   /webodm/start.sh
 done
