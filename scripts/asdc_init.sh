@@ -4,6 +4,9 @@
 #- Added patch script to copy in selected patched files
 #- Added loop to apply patches and restart if main gunicorn process is killed 
 
+#pip error fixed by adding to PATH:
+export PATH=$PATH:/home/webodm/.local/bin
+
 cd /webodm/app/media/
 #Clone the init files if not yet a git repo
 if [ ! -s ".git/config" ]
@@ -14,10 +17,14 @@ then
   git init
   git remote add origin https://github.com/auscalabledronecloud/asdc-init.git
   git fetch
-  #TODO: different branches for production/development!
-  #need to set an env var 
-  git reset origin/main --hard
-  git branch --set-upstream-to=origin/main main
+  #Uses different branches for production/development
+  if [ "${ASDC_ENV}" = "PRODUCTION" ]; then
+    BRANCH=main
+  else
+    BRANCH=development
+  fi
+  git reset origin/${BRANCH} --hard
+  git branch --set-upstream-to=origin/${BRANCH} ${BRANCH}
 fi
 
 #Update the init files
@@ -42,8 +49,6 @@ do
 
   cd /webodm
 
-  #Applying patch on dev/prod for now as some changes are neccessary
-  #Only patch on dev, production changes need to be in image
   echo Running patch on $HOSTNAME
   /webodm/app/media/patch/apply.sh
 
