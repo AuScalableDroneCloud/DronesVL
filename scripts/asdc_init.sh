@@ -4,17 +4,14 @@
 #- Added patch script to copy in selected patched files
 #- Added loop to apply patches and restart if main gunicorn process is killed 
 
-#pip error fixed by adding to PATH:
-export PATH=$PATH:/home/webodm/.local/bin
-
 cd /webodm/app/media/
 #Clone the init files if not yet a git repo
 if [ ! -s ".git/config" ]
 then
   #This will work even if /webodm/app/media is not empty dir
+  git init
   git config --global init.defaultBranch main
   git config pull.rebase false
-  git init
   git remote add origin https://github.com/auscalabledronecloud/asdc-init.git
   git fetch
   #Uses different branches for production/development
@@ -23,6 +20,7 @@ then
   else
     BRANCH=development
   fi
+  git checkout ${BRANCH}
   git reset origin/${BRANCH} --hard
   git branch --set-upstream-to=origin/${BRANCH} ${BRANCH}
 fi
