@@ -27,21 +27,33 @@ if [ ${USED} -gt 90 ]; then
   #Remove the reserve file in case space is critically low
   rm $BIGFILE
   # Run vacuum full on the webodm db
-  psql -d webodm_dev -c 'vacuum full'
+  psql -U postgres -d webodm_dev -c 'vacuum full'
 fi
 
-# Create a 1GB file to reserve space
-# this can be deleted if the disk fills up to
-# allow fixing the issues and running commands
-# https://www.endpointdev.com/blog/2014/09/pgxlog-disk-space-problem-on-postgres/
-if [ ! -f "$BIGFILE" ]; then
-  dd if=/dev/zero of=$BIGFILE bs=1MB count=1024
+#Have we freed up space? Recreate the reserve
+if [ ${USED} -lt 90 ]; then 
+  # Create a 1GB file to reserve space
+  # this can be deleted if the disk fills up to
+  # allow fixing the issues and running commands
+  # https://www.endpointdev.com/blog/2014/09/pgxlog-disk-space-problem-on-postgres/
+  if [ ! -f "$BIGFILE" ]; then
+    dd if=/dev/zero of=$BIGFILE bs=1MB count=1024
+  fi
+
+  # Create a local backup of the database too
+  pg_dump -U postgres -F c webodm_dev > webodm_dev.dump
+
+  echo "FINISHED"
+  #chmod -R 1777 /dev/shm
+else
+  #If vacuum full didn't help then will require manual intervention
+  #Sleep to allow time to investigate issue
+  echo "WARNING: Database volume STILL low on space, sleeping..."
+  sleep 5000
 fi
 
-# Create a local backup of the database too
-pg_dump -U postgres -F c webodm_dev > webodm_dev.dump
+#FIX IMAGE UPLOADS
+#select * from app_imageupload where image like '/webodm/app/media%';
+#delete from app_imageupload where image = '';
+#psql -d webodm_dev -c "update app_imageupload set image = replace(image, '/webodm/app/media/', '');"
 
-echo "FINISHED"
-#chmod -R 1777 /dev/shm
-
-#sleep 5000
