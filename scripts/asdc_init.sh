@@ -44,6 +44,11 @@ do
   #Update the patch files
   cd /webodm/app/media
   git pull --recurse-submodules 
+  #Always use the latest plugin commits in development mode
+  if [ "${ASDC_ENV}" != "PRODUCTION" ]; then
+    cd plugins/asdc
+    git pull origin main
+  fi
 
   cd /webodm
 
