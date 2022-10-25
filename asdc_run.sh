@@ -32,12 +32,6 @@ then
   #NOTE: This just fails when the cluster is running, so it's ok to run without checking here
   openstack coe cluster template delete $TEMPLATE;
 
-  #Working labels for k8s 1.21.1 on fedora-coreos-32
-  LABELS=container_infra_prefix=registry.rc.nectar.org.au/nectarmagnum/,kube_tag=$KUBE_TAG,flannel_tag=$FLANNEL_TAG,master_lb_floating_ip_enabled=true,docker_volume_type=standard,availability_zone=$ZONE,cinder_csi_enabled=true,ingress_controller=octavia
-
-  #Current default labels from kubernetes-monash-02-v1.21.1
-  #container_infra_prefix=registry.rc.nectar.org.au/nectarmagnum/,kube_tag=v1.21.1,flannel_tag=v0.14.0-amd64,master_lb_floating_ip_enabled=true,cinder_csi_enabled=true,docker_volume_type=standard,availability_zone=monash-02,ingress_controller=octavia
-
   #Creating the template
   echo "Using labels: $LABELS"
   if ! openstack coe cluster template show $TEMPLATE;

@@ -23,10 +23,7 @@ data:
   TUSD_VOLUME_SIZE: "${TUSD_VOLUME_SIZE}"
 
   #gpu-operator
-  #Must match version in current build at https://github.com/AuScalableDroneCloud/nvidia-driver-build-fedora
-  NVIDIA_DRIVER: "460.32.03"
-  #NVIDIA_DRIVER: "470.57.02" #Errors due to gcc version? Might need a newer coreos
-  #NVIDIA_DRIVER: "510.47.03"
+  NVIDIA_DRIVER: "${NVIDIA_DRIVER}"
 
   #jupyterhub
   JHUB_HOST: jupyter.${WEBAPP_HOST}
