@@ -162,14 +162,18 @@ kubectl create namespace flux-system
 
 # Installs flux if it's not already present, using the configured live repo. This is idempotent.
 #(OK: Adding image automation features: https://fluxcd.io/docs/guides/image-update/#configure-image-scanning)
-flux bootstrap ${FLUX_LIVE_REPO_TYPE} \
+if ! flux bootstrap ${FLUX_LIVE_REPO_TYPE} \
   --owner=${FLUX_LIVE_REPO_OWNER} \
   --repository=${FLUX_LIVE_REPO} \
   --branch=${FLUX_LIVE_REPO_BRANCH} \
   --team=${FLUX_LIVE_REPO_TEAM} \
   --path=${FLUX_LIVE_REPO_PATH} \
   --read-write-key \
-  --components-extra=image-reflector-controller,image-automation-controller
+  --components-extra=image-reflector-controller,image-automation-controller;
+then
+  echo "ERROR IN FLUX BOOTSTRAP, HALTING"
+  return
+fi
 
 #SMTP
 #https://artifacthub.io/packages/helm/docker-postfix/mail
