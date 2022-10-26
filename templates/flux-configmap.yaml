@@ -27,6 +27,7 @@ data:
 
   #jupyterhub
   JHUB_HOST: jupyter.${WEBAPP_HOST}
+  PIPELINES_URL: "${PIPELINES_URL}"
 
   #NodeODM
   NODE_VOLUME_SIZE: "${NODE_VOLUME_SIZE}"
