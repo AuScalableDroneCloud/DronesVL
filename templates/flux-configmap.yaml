@@ -26,7 +26,6 @@ data:
   NVIDIA_DRIVER: "${NVIDIA_DRIVER}"
 
   #jupyterhub
-  JHUB_HOST: jupyter.${WEBAPP_HOST}
   PIPELINES_URL: "${PIPELINES_URL}"
 
   #NodeODM
