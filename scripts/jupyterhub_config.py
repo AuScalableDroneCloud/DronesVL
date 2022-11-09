@@ -16,7 +16,10 @@ from jupyterhub.auth import Authenticator
 from oauthenticator.auth0 import Auth0OAuthenticator
 class ASDCAuth(Auth0OAuthenticator):
     async def authenticate(self, handler, data=None):
-        return super().authenticate(handler, data)
+        res = await super().authenticate(handler, data)
+        print("ASDCAUTH:")
+        print(res)
+        return res
 
 # and then declare the authenticator to be used, i don't remember how, see reference:
 #c.JupyterHub.authenticator_class = 'ASDCAuth'
