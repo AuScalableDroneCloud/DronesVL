@@ -6,6 +6,7 @@ def asdc_auth_state_hook(spawner, auth_state):
           "ASDC_USER_REFRESH_TOKEN": auth_state.get("refresh_token"),
           "ASDC_USER_ACCESS_TOKEN": auth_state.get("access_token"),
           "ASDC_USER_ID_TOKEN": auth_state.get("id_token"),
+          "ASDC_API_ACCESS_TOKEN": auth_state.get("api_access_token"),
           "ASDC_AUTH0_USER": str(auth_state.get("auth0_user"))
         }
     else:
@@ -14,6 +15,7 @@ c.KubeSpawner.auth_state_hook = asdc_auth_state_hook
 
 from jupyterhub.auth import Authenticator
 from oauthenticator.auth0 import Auth0OAuthenticator
+from tornado.httpclient import HTTPRequest
 class ASDCAuth(Auth0OAuthenticator):
     async def authenticate(self, handler, data=None):
         res = await super().authenticate(handler, data)
