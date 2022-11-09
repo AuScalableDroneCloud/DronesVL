@@ -16,6 +16,7 @@ c.KubeSpawner.auth_state_hook = asdc_auth_state_hook
 from jupyterhub.auth import Authenticator
 from oauthenticator.auth0 import Auth0OAuthenticator
 from tornado.httpclient import HTTPRequest
+import json
 class ASDCAuth(Auth0OAuthenticator):
     async def authenticate(self, handler, data=None):
         res = await super().authenticate(handler, data)
