@@ -267,7 +267,7 @@ async def profile_pvc(spawner):
     spawner.environment.update({
         "ASDC_PROJECTS": ','.join(plist),
         "ASDC_TASKS": tasks,
-        "JUPYTERHUB_URL": "https://${JHUB_HOST}",
+        "JUPYTERHUB_URL": "https://jupyter.${WEBAPP_HOST}",
         "JUPYTER_OAUTH2_API_AUDIENCE": "https://${WEBAPP_HOST}/api",
         "JUPYTER_OAUTH2_CLIENT_ID": "${WO_AUTH0_KEY}",
         "JUPYTER_OAUTH2_DEVICE_CLIENT_ID": "${WO_AUTH0_DEVICE_KEY}",
