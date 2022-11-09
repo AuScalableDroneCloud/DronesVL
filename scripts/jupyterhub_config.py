@@ -12,6 +12,17 @@ def asdc_auth_state_hook(spawner, auth_state):
         print('auth_state not set!')
 c.KubeSpawner.auth_state_hook = asdc_auth_state_hook
 
+from jupyterhub.auth import Authenticator
+from oauthenticator.auth0 import Auth0OAuthenticator
+class ASDCAuth(Auth0OAuthenticator):
+    async def authenticate(self, handler, data=None):
+        return super().authenticate(handler, data)
+
+# and then declare the authenticator to be used, i don't remember how, see reference:
+#c.JupyterHub.authenticator_class = 'ASDCAuth'
+c.JupyterHub.authenticator_class = ASDCAuth
+# https://jupyterhub.readthedocs.io/en/latest/reference/authenticators.html
+
 #hub: |
 c.JupyterHub.tornado_settings = { 'headers': { 'Content-Security-Policy': 'frame-ancestors self https://${WEBAPP_HOST}'}}
 c.JupyterHub.allow_named_servers = True #Allow named servers: https://jupyterhub.readthedocs.io/en/stable/reference/rest.html
