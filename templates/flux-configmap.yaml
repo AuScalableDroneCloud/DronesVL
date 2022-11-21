@@ -27,6 +27,7 @@ data:
 
   #jupyterhub
   PIPELINES_URL: "${PIPELINES_URL}"
+  PIPELINE_REPO: "${PIPELINE_REPO}"
 
   #NodeODM
   NODE_VOLUME_SIZE: "${NODE_VOLUME_SIZE}"
