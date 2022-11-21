@@ -50,6 +50,12 @@ do
     git pull origin main
   fi
 
+  #Install GCP Editor Pro
+  cd /webodm/app/media/plugins
+  wget https://uav4geo.com/static/downloads/GCPEditorPro-WebODM-Plugin.zip
+  unzip GCPEditorPro-WebODM-Plugin.zip
+  rm GCPEditorPro-WebODM-Plugin.zip
+
   cd /webodm
 
   echo Running patch on $HOSTNAME
