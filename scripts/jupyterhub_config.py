@@ -124,16 +124,18 @@ def get_profiles(self):
         response = requests.get(url, timeout=30)
         for pipeline in response.json():
             commands = []
+            branch = 'main'
+            if 'branch' in pipeline: branch = pipeline['branch']
             if ':' in pipeline['source']:
                 #Pull provided source repo
                 repo_dir = pipeline['tag']
-                commands += [f'rm -rf {repo_dir}', f'git clone --depth 1 {pipeline["source"]} {pipeline["tag"]}']
+                #commands += [f'rm -rf {repo_dir}', f'git clone --depth 1 {pipeline["source"]} {pipeline["tag"]}']
+                commands += ['gitpuller {pipeline["source"]} {branch} {pipeline["tag"]}']
             else:
                 #Pull default pipelines-jupyter source repo
-                #TODO: make this repo a var
                 repo_dir = f"pipelines/{pipeline['source']}"
-                commands += ['rm -rf pipelines', 'git clone --depth 1 https://github.com/AuScalableDroneCloud/pipelines-jupyter.git pipelines']
-                commands += ['rm -rf pipelines', 'git clone --depth 1 https://github.com/AuScalableDroneCloud/pipelines-jupyter.git pipelines']
+                #commands += ['rm -rf pipelines', 'git clone --depth 1 ${PIPELINE_REPO} pipelines']
+                commands += ['gitpuller ${PIPELINE_REPO} main pipelines']
 
             commands += [f"pip install -r {repo_dir}/requirements.txt --quiet --no-cache-dir || true"]
 
