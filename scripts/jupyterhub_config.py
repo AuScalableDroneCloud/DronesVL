@@ -121,7 +121,7 @@ def get_profiles(self):
     #if webodm is available, load the custom url
     try:
         url = f"https://${WEBAPP_HOST}/api/plugins/asdc/userpipelines?email={username}"
-        response = requests.get(url, timeout=5)
+        response = requests.get(url, timeout=30)
         for pipeline in response.json():
             commands = []
             if ':' in pipeline['source']:
