@@ -6,55 +6,16 @@ def asdc_auth_state_hook(spawner, auth_state):
           "ASDC_USER_REFRESH_TOKEN": auth_state.get("refresh_token"),
           "ASDC_USER_ACCESS_TOKEN": auth_state.get("access_token"),
           "ASDC_USER_ID_TOKEN": auth_state.get("id_token"),
-          "ASDC_API_ACCESS_TOKEN": auth_state.get("api_access_token"),
           "ASDC_AUTH0_USER": str(auth_state.get("auth0_user"))
         }
     else:
         print('auth_state not set!')
+
+from oauthenticator.auth0 import Auth0OAuthenticator
 c.KubeSpawner.auth_state_hook = asdc_auth_state_hook
 
-from jupyterhub.auth import Authenticator
-from oauthenticator.auth0 import Auth0OAuthenticator
-from tornado.httpclient import HTTPRequest
-import json
-class ASDCAuth(Auth0OAuthenticator):
-    async def authenticate(self, handler, data=None):
-        res = await super().authenticate(handler, data)
-
-        import secrets
-        nonce = secrets.token_urlsafe(nbytes=8)
-        params = {
-            'response_type' : 'token id_token',
-            'client_id': self.client_id,
-            #'client_secret': self.client_secret,
-            'audience' : "https://${WEBAPP_HOST}/api",
-            #'code': code,
-            'redirect_uri': self.get_callback_url(handler),
-            'nonce' : nonce,
-            'state' : 'auth0,' + nonce,
-        }
-        print(params)
-
-        url = self.token_url
-
-        req = HTTPRequest(
-            url,
-            method="POST",
-            headers={"Content-Type": "application/json"},
-            body=json.dumps(params),
-        )
-
-        resp_json = await self.fetch(req)
-        print(resp_json)
-
-        api_access_token = resp_json['access_token']
-
-        res['auth_state']['api_access_token'] = api_access_token
-        return res
-
-# and then declare the authenticator to be used, i don't remember how, see reference:
-#c.JupyterHub.authenticator_class = 'ASDCAuth'
-c.JupyterHub.authenticator_class = ASDCAuth
+# and then declare the authenticator to be used, see reference:
+c.JupyterHub.authenticator_class = Auth0OAuthenticator
 # https://jupyterhub.readthedocs.io/en/latest/reference/authenticators.html
 
 #hub: |
