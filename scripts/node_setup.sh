@@ -22,6 +22,7 @@ fi
 
 #Loop until clusterodm is running
 NODETYPE="${NODETYPE:-nodeodm}"
+NODEPORT="${NODEPORT:-3000}"
 NODEHOST=${HOSTNAME}.nodeodm-svc
 CLUSTERODM_ID="${CLUSTERODM_ID:-0}" #Default to first node clusterodm
 CLUSTERODM=${NODETYPE}-${CLUSTERODM_ID}.nodeodm-svc
@@ -45,7 +46,7 @@ else
   echo "Adding node to cluster..."
   exec {fd}<>/dev/tcp/${CLUSTERODM}/${CLUSTERODM_PORT}
   sleep 0.1
-  echo -e "NODE ADD ${NODEHOST} 3000" >&${fd}
+  echo -e "NODE ADD ${NODEHOST} ${NODEPORT}" >&${fd}
   sleep 0.1
   echo -e "QUIT" >&${fd}
 fi
