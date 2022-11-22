@@ -23,7 +23,8 @@ fi
 #Loop until clusterodm is running
 NODETYPE="${NODETYPE:-nodeodm}"
 NODEHOST=${HOSTNAME}.nodeodm-svc
-CLUSTERODM=${NODETYPE}-0.nodeodm-svc
+CLUSTERODM_ID="${CLUSTERODM_ID:-0}" #Default to first node clusterodm
+CLUSTERODM=${NODETYPE}-${CLUSTERODM_ID}.nodeodm-svc
 CLUSTERODM_PORT=8080
 until getent hosts ${CLUSTERODM}
 do
