@@ -56,6 +56,8 @@ def get_profiles(self):
       "find /home/jovyan -type l -delete",
       "find /home/jovyan/ -type d -empty -delete",
       "rm -rf /home/jovyan/projects",
+      #Fix package leftovers installed in .local
+      "rm -rf /home/jovyan/.local",
       #Save all checkpoints here
       "mkdir -p /home/jovyan/checkpoints",
       #Still have broken duplicate numpy, probably should install with conda install instead...
