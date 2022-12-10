@@ -57,6 +57,7 @@ chmod 600 ${PRIVKEY}
 
 #Get the repo and update
 pushd secrets
+echo " - Attempt to clone, error expected if repo exists..."
 git clone git@github.com:AuScalableDroneCloud/secrets.git encrypted
 cd encrypted
 git pull

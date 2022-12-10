@@ -97,11 +97,20 @@ then
   mv config $KUBECONFIG
   #Update secrets repo...
   ./crypt.sh push
+  #Also copy to keybase
+  if command -v keybase &> /dev/null; then
+    BASE_KC="$(basename -- $KUBECONFIG)"
+    echo $BASE_KC
+    echo "keybase fs cp $KUBECONFIG /keybase/team/asdc.admin/${BASE_KC} ."
+    keybase fs cp $KUBECONFIG /keybase/team/asdc.admin/${BASE_KC} .
+  fi
 
-  # DNS fails on newer kubernetes with fedora-coreos-32 image, need to restart flannel pods...
-  # See: https://tutorials.rc.nectar.org.au/kubernetes/09-troubleshooting
   #Flannel
-  kubectl -n kube-system delete pod -l app=flannel
+  if [ "$IMAGE" = "fedora-coreos-32" ]; then
+    # DNS fails on newer kubernetes with fedora-coreos-32 image, need to restart flannel pods...
+    # See: https://tutorials.rc.nectar.org.au/kubernetes/09-troubleshooting
+    kubectl -n kube-system delete pod -l app=flannel
+  fi
 
   #Calico - reset pods to try and fix network issues?
   kubectl get pods --all-namespaces -owide --show-labels
@@ -145,8 +154,7 @@ echo --- Phase 3 : Deployment: Flux apps - Prepare configmaps and secrets for fl
 # ####################################################################################################
 
 #Update ConfigMap/Secret data
-kubectl create namespace flux-system
-./asdc_update.sh
+./asdc_update.sh noflux
 
 # Bootstrap flux.
 #(Requires github personal access token with repo rights in GITHUB_TOKEN)

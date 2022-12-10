@@ -70,8 +70,8 @@ kubectl get nodes -l magnum.openstack.org/role=cluster
 #kubectl get nodes -l nvidia.com/gpu.product=Tesla-P4
 
 #To resize nodegroups
-#openstack coe cluster resize $CLUSTER --nodegroup $NODEGROUP_BASE-A40 2
-#openstack coe cluster resize $CLUSTER --nodegroup $NODEGROUP_BASE-A100 1
+#openstack coe cluster resize $CLUSTER --nodegroup gpu-A40 2
+#openstack coe cluster resize $CLUSTER --nodegroup gpu-A100 1
 
 #Create the compute cluster
 #source cluster_create.sh
@@ -135,11 +135,11 @@ fi
 export NODEGROUP_CREATED=1 #Need to force this if interrupted
 if [ $NODEGROUP_CREATED == 1 ];
 then
-  #NOTE: this needs to be done a bit later, and at least twice
-  #gpu-operator pods still struggle on a newly created nodegroup
-  #without manually running this again
-  kubectl -n kube-system delete pod -l app=flannel
-  #kubectl -n kube-system delete pod -l k8s-app=calico-node
+  if [ "$IMAGE" = "fedora-coreos-32" ]; then
+    # DNS fails on newer kubernetes with fedora-coreos-32 image, need to restart flannel pods...
+    # See: https://tutorials.rc.nectar.org.au/kubernetes/09-troubleshooting
+    kubectl -n kube-system delete pod -l app=flannel
+  fi
 
   #Apply some labels to the compute pods
   for node in $(kubectl get nodes -l magnum.openstack.org/role=cluster -ojsonpath='{.items[*].metadata.name}'); 

@@ -1,3 +1,18 @@
+#Necessary namespaces
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: flux-system
+  labels:
+    name: flux-system
+---
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: jupyterhub
+  labels:
+    name: jupyterhub
+---
 #Pass env settings to fluxcd
 #via ConfigMaps and Secret
 #See: https://github.com/flux/zero-to-flux-k8s/blob/main/flux/values.yaml

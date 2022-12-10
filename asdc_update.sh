@@ -51,5 +51,7 @@ if [ ${DB_VOLUME_SIZE} -gt ${DBSIZE} ]; then
 fi
 
 #Apply changes
-flux reconcile kustomization apps --with-source
+if [ "$1" != "noflux" ]; then
+  flux reconcile kustomization apps --with-source
+fi
 
