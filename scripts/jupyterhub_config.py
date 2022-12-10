@@ -124,6 +124,9 @@ def get_profiles(self):
     try:
         url = f"https://${WEBAPP_HOST}/api/plugins/asdc/userpipelines?email={username}"
         response = requests.get(url, timeout=30)
+        if not response.ok:
+            #Pipelines request not responding
+            return profile_list
         for pipeline in response.json():
             commands = []
             branch = 'main'
@@ -246,8 +249,10 @@ async def profile_pvc(spawner):
         #Get project ids we have access to
         import requests
         url = f"https://${WEBAPP_HOST}/api/plugins/asdc/userprojects?email={user_name}"
-        response = requests.get(url, timeout=5)
-        projects = response.json()
+        response = requests.get(url, timeout=15)
+        projects = []
+        if response.ok:
+           projects = response.json()
 
         for pr_id in plist:
             #Important: check id is in user's project list
