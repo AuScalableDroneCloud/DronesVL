@@ -101,8 +101,9 @@ then
   if command -v keybase &> /dev/null; then
     BASE_KC="$(basename -- $KUBECONFIG)"
     echo $BASE_KC
-    echo "keybase fs cp $KUBECONFIG /keybase/team/asdc.admin/${BASE_KC} ."
-    keybase fs cp $KUBECONFIG /keybase/team/asdc.admin/${BASE_KC} .
+    echo "keybase fs cp $KUBECONFIG /keybase/team/asdc.admin/${BASE_KC}"
+    keybase fs rm /keybase/team/asdc.admin/${BASE_KC}
+    keybase fs cp $KUBECONFIG /keybase/team/asdc.admin/${BASE_KC} -f
   fi
 
   #Flannel
