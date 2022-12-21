@@ -56,8 +56,8 @@ def get_profiles(self):
       "find /home/jovyan -type l -delete",
       "find /home/jovyan/ -type d -empty -delete",
       "rm -rf /home/jovyan/projects",
-      #Fix package leftovers installed in .local
-      "rm -rf /home/jovyan/.local",
+      #Fix package leftovers installed in .local and remove inputs.json
+      "rm -rf /home/jovyan/.local/*",
       #Save all checkpoints here
       "mkdir -p /home/jovyan/checkpoints",
       #Still have broken duplicate numpy, probably should install with conda install instead...
@@ -114,10 +114,26 @@ def get_profiles(self):
             }
           }
         }
+      }, {
+        'display_name': 'ML + GPU + ASDC base environment',
+        'description': 'Python with ASDC base libraries and examples and GPU support, with additional ML libraries.',
+        'slug' : 'ml',
+        'kubespawner_override': {
+          'image': images['ml'],
+          'lifecycle_hooks': {
+            'postStart': {
+              'exec': {
+                'command': ["/bin/sh", "-c", ';'.join(default_commands)]
+              }
+            }
+          }
+        }
       }
     ]
 
     #Get profiles from pipeline repo
+    #(Now disabled, we use gitpuller links to sync repos and install requirements)
+    '''
     import requests
     username = self.user.name
     #if webodm is available, load the custom url
@@ -170,6 +186,7 @@ def get_profiles(self):
 
     except (Exception) as e:
         print("Exceptions:",e)
+    '''
 
     return profile_list
 
@@ -180,6 +197,8 @@ async def dynamic_options_form(self):
         form = await form(self)
     #Tweaking form css
     form = form.replace('padding-bottom: 12px;', '')
+    return form
+    #SKIP PROJECT/TASK FIELDS HERE, LEAVING CODE FOR FUTURE REFERENCE
     #Custom fields
     form += """
     <div>
@@ -206,9 +225,37 @@ class KubeFormSpawner(KubeSpawner):
         #options['select'] = formdata['select'] # list already correct
         return options
 
+#https://github.com/jupyterhub/jupyterhub/blob/main/jupyterhub/handlers/base.py#L1667
+from urllib.parse import parse_qs, parse_qsl, urlencode, urlparse, urlunparse
+from tornado.httputil import url_concat
+from jupyterhub.utils import url_path_join
+async def user_redirect_hook(path, request, user, base_url):
+    #Support our built-in server names for user-redirect
+    user_url = user.url
+    server, path = path.split('/', 1)
+    if server in ['base', 'gpu', 'ml']:
+        user_url = url_path_join(user_url, server)
+        user_url = url_path_join(user_url, path)
+        if request.query:
+            user_url = url_concat(user_url, parse_qsl(request.query))
+
+        url = url_concat(
+            url_path_join(
+                base_url,
+                "spawn",
+                user.escaped_name,
+                server,
+            ),
+            {"next": user_url},
+        )
+        return url
+    #Just use the default action
+    return None
+
 c.KubeSpawner.profile_list = get_profiles
 c.KubeSpawner.options_form = dynamic_options_form
 c.JupyterHub.spawner_class = KubeFormSpawner
+c.JupyterHub.user_redirect_hook = user_redirect_hook
 
 #volumes: |
 #Here we setup custom volume mounts
@@ -271,17 +318,18 @@ async def profile_pvc(spawner):
                 ])
 
     #Dump to file for debugging
-    import json
-    with open('debug.json', 'w') as file:
-        file.write(json.dumps(spawner.user_options, indent=2))
-        file.write(f'User name: {user_name}\n')
-        file.write(json.dumps(spawner.volumes, indent=2))
-        file.write(json.dumps(spawner.volume_mounts, indent=2))
+    #import json
+    #with open('debug.json', 'w') as file:
+    #    file.write(json.dumps(spawner.user_options, indent=2))
+    #    file.write(f'User name: {user_name}\n')
+    #    file.write(json.dumps(spawner.volumes, indent=2))
+    #    file.write(json.dumps(spawner.volume_mounts, indent=2))
 
     #Update the env here as singleuser.extraEnv does nothing
     spawner.environment.update({
         "ASDC_PROJECTS": ','.join(plist),
         "ASDC_TASKS": tasks,
+        "ASDC_INPUT_FILE": "/home/jovyan/.local/inputs.json",
         "JUPYTERHUB_URL": "https://jupyter.${WEBAPP_HOST}",
         "JUPYTER_OAUTH2_API_AUDIENCE": "https://${WEBAPP_HOST}/api",
         "JUPYTER_OAUTH2_CLIENT_ID": "${WO_AUTH0_KEY}",
