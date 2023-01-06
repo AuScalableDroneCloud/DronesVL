@@ -131,16 +131,9 @@ if [ "$NODES_A100" -gt "0" ]; then
   nodegroup_wait $NODEGROUP_BASE-A100
 fi
 
-#Need to re-create flannel pods after nodegroup created
 export NODEGROUP_CREATED=1 #Need to force this if interrupted
 if [ $NODEGROUP_CREATED == 1 ];
 then
-  if [ "$IMAGE" = "fedora-coreos-32" ]; then
-    # DNS fails on newer kubernetes with fedora-coreos-32 image, need to restart flannel pods...
-    # See: https://tutorials.rc.nectar.org.au/kubernetes/09-troubleshooting
-    kubectl -n kube-system delete pod -l app=flannel
-  fi
-
   #Apply some labels to the compute pods
   for node in $(kubectl get nodes -l magnum.openstack.org/role=cluster -ojsonpath='{.items[*].metadata.name}'); 
   do 

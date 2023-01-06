@@ -106,13 +106,6 @@ then
     keybase fs cp $KUBECONFIG /keybase/team/asdc.admin/${BASE_KC} -f
   fi
 
-  #Flannel
-  if [ "$IMAGE" = "fedora-coreos-32" ]; then
-    # DNS fails on newer kubernetes with fedora-coreos-32 image, need to restart flannel pods...
-    # See: https://tutorials.rc.nectar.org.au/kubernetes/09-troubleshooting
-    kubectl -n kube-system delete pod -l app=flannel
-  fi
-
   #Calico - reset pods to try and fix network issues?
   kubectl get pods --all-namespaces -owide --show-labels
   #kubectl -n kube-system delete pod -l k8s-app=calico-node
