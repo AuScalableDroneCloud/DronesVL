@@ -7,54 +7,61 @@
 #Designed to use builtin shell features so
 #no packages required (telnet/netcat/nslookup etc)
 
+#Now also used to launch ClusterODM, check the NODETYPE var
+NODETYPE="${NODETYPE:-nodeodm}"
 #Fix the tmp path storage issue
-#(writes to ./tmp in /var/www, which fills ethemeral storage of docker image and node)
-#(replace this with symlink to the persistent volume)
+#(writes to ./tmp in /var/www by default, which fills ethemeral storage of docker image and node)
+#(replace this with symlink to the scratch volume)
 if ! [ -L /var/www/tmp ] ; then
-  rm -rf /var/www/data;
-  mkdir -p /var/www/scratch/nodes;
-  ln -s /var/www/scratch/nodes /var/www/data;
-
   rm -rf /var/www/tmp;
-  mkdir /var/www/scratch/tmp;
-  ln -s /var/www/scratch/tmp /var/www/tmp;
+  mkdir -p /var/www/scratch/${NODETYPE}/${HOSTNAME}/tmp;
+  ln -s /var/www/scratch/${NODETYPE}/${HOSTNAME}/tmp /var/www/tmp;
 fi
 
-#Loop until clusterodm is running
-NODETYPE="${NODETYPE:-nodeodm}"
-NODEPORT="${NODEPORT:-3000}"
-NODEHOST=${HOSTNAME}.nodeodm-svc
-CLUSTERODM_ID="${CLUSTERODM_ID:-0}" #Default to first node clusterodm
-CLUSTERODM=${NODETYPE}-${CLUSTERODM_ID}.nodeodm-svc
-CLUSTERODM_PORT=8080
-until getent hosts ${CLUSTERODM}
-do
-  echo "Waiting for ${CLUSTERODM} to start"
-  sleep 2
-done
-echo "${CLUSTERODM} is running : $1"
+if [ "$NODETYPE" != "clusterodm" ]; then
+  #-- Setup NodeODM,
+  #Link /var/www/data to scratch/nodetype/hostname
+  if ! [ -L /var/www/data ] ; then
+    rm -rf /var/www/data;
+    mkdir -p /var/www/scratch/${NODETYPE}/${HOSTNAME};
+    ln -s /var/www/scratch/${NODETYPE}/${HOSTNAME} /var/www/data;
+  fi
+  #   register with ClusterODM instance on first node of this type
+  NODEPORT="${NODEPORT:-3000}"
+  NODEHOST=${HOSTNAME}.nodeodm-svc
+  CLUSTERODM_ID="${CLUSTERODM_ID:-0}" #Default to first node clusterodm
+  CLUSTERODM=${NODETYPE}-${CLUSTERODM_ID}.nodeodm-svc
+  CLUSTERODM_PORT=8080
+  #Loop until clusterodm is running
+  until getent hosts ${CLUSTERODM}
+  do
+    echo "Waiting for ${CLUSTERODM} to start"
+    sleep 2
+  done
+  echo "${CLUSTERODM} is running : $1"
 
-#Check if added already
-exec {fd}<>/dev/tcp/${CLUSTERODM}/${CLUSTERODM_PORT}
-sleep 0.1
-echo -e "NODE LIST" >&${fd}
-sleep 0.1
-echo -e "QUIT" >&${fd}
-if cat <&${fd} | grep ${HOSTNAME}; then
-  echo "Node already added..."
-else
-  echo "Adding node to cluster..."
+  #Check if added already
   exec {fd}<>/dev/tcp/${CLUSTERODM}/${CLUSTERODM_PORT}
   sleep 0.1
-  echo -e "NODE ADD ${NODEHOST} ${NODEPORT}" >&${fd}
+  echo -e "NODE LIST" >&${fd}
   sleep 0.1
   echo -e "QUIT" >&${fd}
+  if cat <&${fd} | grep ${HOSTNAME}; then
+    echo "Node already added..."
+  else
+    echo "Adding node to cluster..."
+    exec {fd}<>/dev/tcp/${CLUSTERODM}/${CLUSTERODM_PORT}
+    sleep 0.1
+    echo -e "NODE ADD ${NODEHOST} ${NODEPORT}" >&${fd}
+    sleep 0.1
+    echo -e "QUIT" >&${fd}
+  fi
 fi
 
 #Launch node
-/usr/bin/node /var/www/index.js $@;
+node /var/www/index.js $@;
 
-#Possible args:
+#Possible args (NodeODM):
 #Usage: node index.js [options]
 #
 #Options:
@@ -87,4 +94,29 @@ fi
 #        --max_concurrency   <number>    Place a cap on the max-concurrency option to use for each task. (default: no limit)
 #        --max_runtime   <number> Number of minutes (approximate) that a task is allowed to run before being forcibly canceled (timeout). (default: no limit)
 
+
+#Possible args (ClusterODM):
+#Usage: node index.js [options]
+#Options:
+#    --config <path>	Path to JSON configuration file. You can use a configuration file instead of passing command line parameters. (default: config-default.json)
+#    -p, --port <number>	Port to bind the server to (default: 3000)
+#    --secure-port <number>	If SSL is enabled and you want to expose both a secure and non-secure service, set this value to the secure port. Otherwise only SSL will be enabled using the --port value. (default: none)
+#    --admin-cli-port <number> 	Port to bind the admin CLI to. Set to zero to disable. (default: 8080)
+#    --admin-web-port <number> 	Port to bind the admin web interface to. Set to zero to disable. (default: 10000)
+#    --admin-pass <string> 	Password to log-in to the admin functions (default: none)
+#    --log-level <logLevel>	Set log level verbosity (default: info)
+#    -c, --cloud-provider	Cloud provider to use (default: local)
+#    --upload-max-speed <number>	Upload to processing nodes speed limit in bytes / second (default: no limit)
+#    --downloads-from-s3 <URL>	Manually set the S3 URL prefix where to redirect /task/<uuid>/download requests. (default: do not use S3, forward download requests to nodes, unless the autoscaler is setup, in which case the autoscaler's S3 configuration is used) 
+#    --no-splitmerge	By default the program will set itself as being a cluster node for all split/merge tasks. Setting this option disables it. (default: false)
+#    --public-address <http(s)://host:port>	Should be set to a public URL that nodes can use to reach ClusterODM. (default: match the "host" header from client's HTTP request)
+#    --flood-limit <number>	Limit the number of simultaneous task uploads that a user can initiate concurrently (default: no limit)
+#    --stale-uploads-timeout <number>	Delete temporary uploads if no activity is recorded for these many hours. After 48 hours stale uploads are always removed regardless of this option. (default: do not remove stale uploads)
+#    --token <token> Sets a token that needs to be passed for every request. This can be used to limit access to the node only to token holders. (default: none)
+#    --debug 	Disable caches and other settings to facilitate debug (default: false)
+#    --ssl-key <file>	Path to .pem SSL key file
+#    --ssl-cert <file>	Path to SSL .pem certificate
+#    --asr <file>	Path to configuration for enabling the autoscaler. This is combined with the provider's default configuration (default: none)
+#Log Levels: 
+#error | debug | info | verbose | debug | silly
 
