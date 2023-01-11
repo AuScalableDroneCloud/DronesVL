@@ -101,7 +101,7 @@ ${WEBODM_SETUP_SCRIPT_CONTENT}
 ${DATABASE_CHECK_SCRIPT_CONTENT}
 
 ---
-#Init scripts for WebODM, NodeODM
+#Init scripts for Jupyterhub
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -110,6 +110,8 @@ metadata:
 data:
   jupyterhub_config_custom.py: |
 ${JUPYTERHUB_CONFIG_SCRIPT_CONTENT}
+  asdc-start-notebook.sh: |
+${JUPYTERHUB_START_SCRIPT_CONTENT}
 
 ---
 # Secret for k8s-csi-s3 mounts to object store

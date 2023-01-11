@@ -27,6 +27,7 @@ export NODEODM_SETUP_SCRIPT_CONTENT=$(cat scripts/node_setup.sh | sed 's/\(.*\)/
 export WEBODM_SETUP_SCRIPT_CONTENT=$(cat scripts/asdc_init.sh | sed 's/\(.*\)/    \1/')
 export DATABASE_CHECK_SCRIPT_CONTENT=$(cat scripts/db_check.sh | sed 's/\(.*\)/    \1/')
 export JUPYTERHUB_CONFIG_SCRIPT_CONTENT=$(cat scripts/jupyterhub_config.py | envsubst | sed 's/\(.*\)/    \1/')
+export JUPYTERHUB_START_SCRIPT_CONTENT=$(cat scripts/asdc-start-notebook.sh | envsubst | sed 's/\(.*\)/    \1/')
 
 #Export all required settings env variables to this ConfigMap
 apply_template flux-configmap.yaml

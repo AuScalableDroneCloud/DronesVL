@@ -67,8 +67,8 @@ def get_profiles(self):
       #but this must remain until I find out why
       'gitpuller https://github.com/auscalabledronecloud/test "" /tmp/test',
       #Install the asdc python utils module
-      "pip uninstall --yes asdc",
-      f"pip install --no-cache-dir https://github.com/auscalabledronecloud/asdc_python/archive/{branch}.zip",
+      "python -m pip uninstall --yes asdc",
+      f"python -m pip install --no-cache-dir https://github.com/auscalabledronecloud/asdc_python/archive/{branch}.zip",
       #Run the module, sets up project links etc
       "python -m asdc"
     ]
@@ -158,7 +158,7 @@ def get_profiles(self):
                 #commands += ['rm -rf pipelines', 'git clone --depth 1 ${PIPELINE_REPO} pipelines']
                 commands += ['gitpuller ${PIPELINE_REPO} main pipelines']
 
-            commands += [f"pip install -r {repo_dir}/requirements.txt --quiet --no-cache-dir || true"]
+            commands += [f"python -m pip install -r {repo_dir}/requirements.txt --quiet --no-cache-dir || true"]
 
             new_profile = {
                 'display_name': pipeline['name'],
