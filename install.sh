@@ -1,8 +1,12 @@
 #!/bin/bash
 if [ -z ${KUBE_TAG+x} ];
 then
-  source settings.env #For KUBE_TAG
+  echo "KUBE_TAG NOT SET!"
+  #Get kube_tag from cluster if running
+  LABELS=$(openstack coe cluster show $CLUSTER -c labels -f json)
+  KUBE_TAG=$(python -c "import json; j=json.loads('''${LABELS}'''); print(j['labels']['kube_tag']);")
 fi
+echo KUBE_TAG: $KUBE_TAG
 
 #Install openstack python packages, use virtual env or user 
 if env |grep VIRTUAL_ENV;
