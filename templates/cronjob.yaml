@@ -28,7 +28,6 @@ kind: ServiceAccount
 metadata:
   name: sa-cron-runner
   namespace: default
-
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -38,6 +37,7 @@ spec:
   schedule: "*/10 * * * *" #10 min
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 2
+  concurrencyPolicy: Forbid
   jobTemplate:
     spec:
       template:
