@@ -50,28 +50,11 @@ def get_profiles(self):
     import z2jh
     images = z2jh.get_config('custom.images')
     branch = "development" if "dev." in "${WEBAPP_HOST}" else "main"
-    default_commands = [
-      #Clean up previous mount dirs and links...
-      "find /mnt/project -type d -empty -delete",
-      "find /home/jovyan -type l -delete",
-      "find /home/jovyan/ -type d -empty -delete",
-      "rm -rf /home/jovyan/projects",
-      #Fix package leftovers installed in .local and remove inputs.json
-      "rm -rf /home/jovyan/.local/*",
-      #Save all checkpoints here
-      "mkdir -p /home/jovyan/checkpoints",
-      #Still have broken duplicate numpy, probably should install with conda install instead...
-      "rm -rf /opt/conda/lib/python3.10/site-packages/numpy-1.23.4.dist-info || true",
-      #Without a gitpuller command here the asdc server entrypoint fails to start,
-      #it doesn't matter what repo is pulled, this makes completely no sense
-      #but this must remain until I find out why
-      'gitpuller https://github.com/auscalabledronecloud/test "" /tmp/test',
-      #Install the asdc python utils module
-      "python -m pip uninstall --yes asdc",
-      f"python -m pip install --no-cache-dir https://github.com/auscalabledronecloud/asdc_python/archive/{branch}.zip",
-      #Run the module, sets up project links etc
-      "python -m asdc"
-    ]
+    #WARNING: These commands run asynchronously to those in asdc-start-notebook.sh
+    #k8s runs the postStart hook as a process in the new container, while the entrypoint
+    #script is progressing. Avoid doing anything here that could break the startup
+    #(like uninstalling and re-installing the asdc package for instance)
+    default_commands = []
 
     #Default profiles, no pipeline just open the dev environment
     #NOTE: can set affinity for GPU pods here, for now let the cpu image run on gpu nodes
