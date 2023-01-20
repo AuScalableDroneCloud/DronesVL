@@ -32,6 +32,9 @@ export JUPYTERHUB_START_SCRIPT_CONTENT=$(cat scripts/asdc-start-notebook.sh | se
 #Export all required settings env variables to this ConfigMap
 apply_template flux-configmap.yaml
 
+#Apply the cronjob to check site
+apply_template cronjob.yaml
+
 #####################################################
 echo "Checking database volume size..."
 #####################################################

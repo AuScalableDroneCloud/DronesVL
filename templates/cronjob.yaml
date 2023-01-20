@@ -1,0 +1,88 @@
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: default
+  name: cron-runner
+rules:
+- apiGroups: [""] #Core api group
+  #Allow deleting pods
+  resources: ["pods"]
+  verbs: ["delete"] #, "create", "patch", "get", "update", "list"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1 
+metadata:
+  name: cron-runner
+  namespace: default
+subjects:
+- kind: ServiceAccount
+  name: sa-cron-runner
+  namespace: default
+roleRef:
+  kind: Role
+  name: cron-runner
+  apiGroup: ""
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sa-cron-runner
+  namespace: default
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: check-website
+spec:
+  schedule: "*/5 * * * *" #5 min
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: sa-cron-runner
+          containers:
+          - name: check-website
+            image: bitnami/kubectl:latest
+            command: ["/bin/bash", "/check_site.sh"]
+            volumeMounts:
+            - name: check-site
+              mountPath: /check_site.sh
+              subPath: check_site.sh
+          restartPolicy: Never
+          volumes:
+          #ConfigMap containing check_site.sh script
+          - name: check-site
+            configMap:
+              name: cron-script-configmap
+              items:
+              - key: check_site.sh
+                path: check_site.sh
+
+---
+#Check script
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cron-script-configmap
+  namespace: default
+data:
+  check_site.sh: |
+    #!/bin/bash
+    echo Checking: ${WEBAPP_HOST}
+    #if ! nc -zv -w 10 ${WEBAPP_HOST} 443; then
+    if ! timeout 5.0 curl -sL https://${WEBAPP_HOST}/login > /dev/null; then
+      echo "Site appears down, retrying 1"
+      if ! timeout 5.0 curl -sL https://${WEBAPP_HOST}/login > /dev/null; then
+        echo "Site appears down, retrying 2"
+        if ! timeout 5.0 curl -sL https://${WEBAPP_HOST}/login > /dev/null; then
+          echo "Site still appears down, restarting pods"
+          kubectl delete pods webapp-worker-0 --grace-period=0 --force
+          kubectl delete pods webapp-worker-1 --grace-period=0 --force
+        fi
+      fi
+    else
+      echo "Everything is ok"
+    fi
