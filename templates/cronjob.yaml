@@ -35,7 +35,7 @@ kind: CronJob
 metadata:
   name: check-website
 spec:
-  schedule: "*/5 * * * *" #5 min
+  schedule: "*/10 * * * *" #10 min
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 2
   jobTemplate:
@@ -45,8 +45,8 @@ spec:
           serviceAccountName: sa-cron-runner
           containers:
           - name: check-website
-            image: bitnami/kubectl:latest
-            command: ["/bin/bash", "/check_site.sh"]
+            image: djieno/alpine-curl-kubectl:amd64
+            command: ["/bin/sh", "/check_site.sh"]
             volumeMounts:
             - name: check-site
               mountPath: /check_site.sh
@@ -70,14 +70,14 @@ metadata:
   namespace: default
 data:
   check_site.sh: |
-    #!/bin/bash
+    #!/bin/sh
     echo Checking: ${WEBAPP_HOST}
     #if ! nc -zv -w 10 ${WEBAPP_HOST} 443; then
-    if ! timeout 5.0 curl -sL https://${WEBAPP_HOST}/login > /dev/null; then
+    if ! timeout -t 30 curl -sL https://${WEBAPP_HOST}/login > /dev/null; then
       echo "Site appears down, retrying 1"
-      if ! timeout 5.0 curl -sL https://${WEBAPP_HOST}/login > /dev/null; then
+      if ! timeout -t 30 curl -sL https://${WEBAPP_HOST}/login > /dev/null; then
         echo "Site appears down, retrying 2"
-        if ! timeout 5.0 curl -sL https://${WEBAPP_HOST}/login > /dev/null; then
+        if ! timeout -t 30 curl -sL https://${WEBAPP_HOST}/login > /dev/null; then
           echo "Site still appears down, restarting pods"
           kubectl delete pods webapp-worker-0 --grace-period=0 --force
           kubectl delete pods webapp-worker-1 --grace-period=0 --force
