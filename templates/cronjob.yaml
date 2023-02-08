@@ -82,7 +82,7 @@ data:
     echo Checking: ${WEBAPP_HOST}
 
     #Check status of each replica pod, if any containers in error state then delete!
-    kubectl get pods -l app=webapp-worker -o custom-columns="POD:metadata.name,STATE:status.containerStatuses[*].state.waiting.reason" --no-headers | while read name state
+    kubectl get pods -l app=webapp-worker -o custom-columns="POD:metadata.name,STATE:status.containerStatuses[*].state.waiting.reason" --no-headers | while read podname podstate
     do
         echo "NAME $podname STATE $podstate"
         if [ '$podstate' = 'CrashLoopBackOff' ]
