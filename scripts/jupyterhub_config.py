@@ -313,6 +313,7 @@ async def profile_pvc(spawner):
         "ASDC_PROJECTS": ','.join(plist),
         "ASDC_TASKS": tasks,
         "ASDC_INPUT_FILE": "/home/jovyan/.local/inputs.json",
+        "ODM_TOKEN_PREFIX": "Bearer",
         "JUPYTERHUB_URL": "https://jupyter.${WEBAPP_HOST}",
         "JUPYTER_OAUTH2_API_AUDIENCE": "https://${WEBAPP_HOST}/api",
         "JUPYTER_OAUTH2_CLIENT_ID": "${WO_AUTH0_KEY}",
