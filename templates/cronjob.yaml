@@ -85,10 +85,12 @@ data:
     kubectl get pods -l app=webapp-worker -o custom-columns="POD:metadata.name,STATE:status.containerStatuses[*].state.waiting.reason" --no-headers | while read name state
     do
         echo "NAME $podname STATE $podstate"
-        if [ $podstate = 'CrashLoopBackOff' ]
+        if [ '$podstate' = 'CrashLoopBackOff' ]
         then
-        echo "Deleting pod in failed state: $podname"
+          echo "$podname failing, deleting pod"
           kubectl delete pods $podname --grace-period=0 --force
+        else
+          echo "$podname running fine"
         fi
     done
 
