@@ -1,22 +1,5 @@
 #Arbitrary python code appended to jupyterhub_config.py
-#custom_auth:
-def asdc_auth_state_hook(spawner, auth_state):
-    if auth_state:
-        spawner.environment = {
-          "ASDC_USER_REFRESH_TOKEN": auth_state.get("refresh_token"),
-          "ASDC_USER_ACCESS_TOKEN": auth_state.get("access_token"),
-          "ASDC_USER_ID_TOKEN": auth_state.get("id_token"),
-          "ASDC_AUTH0_USER": str(auth_state.get("auth0_user"))
-        }
-    else:
-        print('auth_state not set!')
-
-from oauthenticator.auth0 import Auth0OAuthenticator
-c.KubeSpawner.auth_state_hook = asdc_auth_state_hook
-
-# and then declare the authenticator to be used, see reference:
-c.JupyterHub.authenticator_class = Auth0OAuthenticator
-# https://jupyterhub.readthedocs.io/en/latest/reference/authenticators.html
+#https://jupyterhub.readthedocs.io/en/stable/api/app.html
 
 #hub: |
 c.JupyterHub.tornado_settings = { 'headers': { 'Content-Security-Policy': 'frame-ancestors self https://${WEBAPP_HOST}'}}
@@ -49,7 +32,6 @@ c.Spawner.args = ['--NotebookApp.tornado_settings={"headers":{"Content-Security-
 def get_profiles(self):
     import z2jh
     images = z2jh.get_config('custom.images')
-    branch = "development" if "dev." in "${WEBAPP_HOST}" else "main"
     #WARNING: These commands run asynchronously to those in asdc-start-notebook.sh
     #k8s runs the postStart hook as a process in the new container, while the entrypoint
     #script is progressing. Avoid doing anything here that could break the startup
@@ -74,7 +56,6 @@ def get_profiles(self):
           #'cpu_limit': 2,
           #'mem_guarantee': '2096M',
           #'mem_limit': '8192M',
-          #'default_url': '/lab'
           'lifecycle_hooks': {
             'postStart': {
               'exec': {
@@ -113,63 +94,6 @@ def get_profiles(self):
         }
       }
     ]
-
-    #Get profiles from pipeline repo
-    #(Now disabled, we use gitpuller links to sync repos and install requirements)
-    '''
-    import requests
-    username = self.user.name
-    #if webodm is available, load the custom url
-    try:
-        url = f"https://${WEBAPP_HOST}/api/plugins/asdc/userpipelines?email={username}"
-        response = requests.get(url, timeout=30)
-        if not response.ok:
-            #Pipelines request not responding
-            return profile_list
-        for pipeline in response.json():
-            commands = []
-            branch = 'main'
-            if 'branch' in pipeline: branch = pipeline['branch']
-            if ':' in pipeline['source']:
-                #Pull provided source repo
-                repo_dir = pipeline['tag']
-                #commands += [f'rm -rf {repo_dir}', f'git clone --depth 1 {pipeline["source"]} {pipeline["tag"]}']
-                commands += ['gitpuller {pipeline["source"]} {branch} {pipeline["tag"]}']
-            else:
-                #Pull default pipelines-jupyter source repo
-                repo_dir = f"pipelines/{pipeline['source']}"
-                #commands += ['rm -rf pipelines', 'git clone --depth 1 ${PIPELINE_REPO} pipelines']
-                commands += ['gitpuller ${PIPELINE_REPO} main pipelines']
-
-            commands += [f"python -m pip install -r {repo_dir}/requirements.txt --quiet --no-cache-dir || true"]
-
-            new_profile = {
-                'display_name': pipeline['name'],
-                'description': pipeline['description'],
-                'slug' : pipeline['tag'],
-                'kubespawner_override': {
-                  'image': images[pipeline['image']],
-                  'lifecycle_hooks': {
-                    'postStart': {
-                      'exec': {
-                        'command': ["/bin/sh", "-c", ';'.join(default_commands + commands)]
-                      }
-                    }
-                  }
-                }
-            }
-
-            if pipeline['entrypoint']:
-                #This works, but opens in old notebook interface, and jupytext still not working for .py files
-                #new_profile['kubespawner_override']['default_url'] = f'/notebooks/{repo_dir}/{pipeline["entrypoint"]}'
-                #Try to open in default lab workspace
-                new_profile['kubespawner_override']['default_url'] = f'/lab/tree/{repo_dir}/{pipeline["entrypoint"]}'
-
-            profile_list.extend([new_profile])
-
-    except (Exception) as e:
-        print("Exceptions:",e)
-    '''
 
     return profile_list
 
@@ -215,10 +139,13 @@ from jupyterhub.utils import url_path_join
 async def user_redirect_hook(path, request, user, base_url):
     #Support our built-in server names for user-redirect
     user_url = user.url
-    server, path = path.split('/', 1)
+    if '/' in path:
+        server, path = path.split('/', 1)
+    else:
+        server = ''
+        path = path
     if server in ['base', 'gpu', 'ml']:
-        user_url = url_path_join(user_url, server)
-        user_url = url_path_join(user_url, path)
+        user_url = url_path_join(user_url, server, path)
         if request.query:
             user_url = url_concat(user_url, parse_qsl(request.query))
 
@@ -232,6 +159,7 @@ async def user_redirect_hook(path, request, user, base_url):
             {"next": user_url},
         )
         return url
+
     #Just use the default action
     return None
 
@@ -300,14 +228,6 @@ async def profile_pvc(spawner):
                     }
                 ])
 
-    #Dump to file for debugging
-    #import json
-    #with open('debug.json', 'w') as file:
-    #    file.write(json.dumps(spawner.user_options, indent=2))
-    #    file.write(f'User name: {user_name}\n')
-    #    file.write(json.dumps(spawner.volumes, indent=2))
-    #    file.write(json.dumps(spawner.volume_mounts, indent=2))
-
     #Update the env here as singleuser.extraEnv does nothing
     spawner.environment.update({
         "ASDC_PROJECTS": ','.join(plist),
@@ -317,10 +237,20 @@ async def profile_pvc(spawner):
         "JUPYTERHUB_URL": "https://jupyter.${WEBAPP_HOST}",
         "JUPYTER_OAUTH2_API_AUDIENCE": "https://${WEBAPP_HOST}/api",
         "JUPYTER_OAUTH2_CLIENT_ID": "${WO_AUTH0_KEY}",
+        "JUPYTER_OAUTH2_API_CLIENT_ID": "${WO_AUTH0_API_KEY}",
         "JUPYTER_OAUTH2_DEVICE_CLIENT_ID": "${WO_AUTH0_DEVICE_KEY}",
         "JUPYTER_OAUTH2_SCOPE": "openid profile email",
         "JUPYTER_OAUTH2_AUTH_PROVIDER_URL": "https://${WO_AUTH0_SUBDOMAIN}.auth0.com"
     })
+
+    #Dump to file for debugging
+    #import json
+    #with open('debug.json', 'w') as file:
+    #    file.write(json.dumps(spawner.environment, indent=2))
+    #    file.write(json.dumps(spawner.user_options, indent=2))
+    #    file.write(f'User name: {user_name}\n')
+    #    file.write(json.dumps(spawner.volumes, indent=2))
+    #    file.write(json.dumps(spawner.volume_mounts, indent=2))
 
 c.KubeSpawner.pre_spawn_hook = profile_pvc
 
