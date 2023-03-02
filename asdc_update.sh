@@ -29,6 +29,11 @@ export DATABASE_CHECK_SCRIPT_CONTENT=$(cat scripts/db_check.sh | sed 's/\(.*\)/ 
 export JUPYTERHUB_CONFIG_SCRIPT_CONTENT=$(cat scripts/jupyterhub_config.py | envsubst | sed 's/\(.*\)/    \1/')
 export JUPYTERHUB_START_SCRIPT_CONTENT=$(cat scripts/asdc-start-notebook.sh | sed 's/\(.*\)/    \1/')
 
+kubectl delete secret jwt-keys-secret
+kubectl create secret generic jwt-keys-secret \
+    --from-file=public_key=$JWT_KEY.pub \
+    --from-file=private_key=$JWT_KEY
+
 #Export all required settings env variables to this ConfigMap
 apply_template flux-configmap.yaml
 
