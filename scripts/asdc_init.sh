@@ -29,6 +29,15 @@ fi
 git submodule update --init --recursive
 git pull --recurse-submodules 
 
+#Install GCP Editor Pro
+cd /webodm/app/media/plugins
+if [ ! -d "gcp-editor-pro" ]
+then
+  wget https://uav4geo.com/static/downloads/GCPEditorPro-WebODM-Plugin.zip
+  unzip GCPEditorPro-WebODM-Plugin.zip
+  rm GCPEditorPro-WebODM-Plugin.zip
+fi
+
 #Setup project storage link to s3 store
 ln -s /webodm/app/store/project /webodm/app/media/project
 
@@ -49,12 +58,6 @@ do
     cd plugins/asdc
     git pull origin main
   fi
-
-  #Install GCP Editor Pro
-  cd /webodm/app/media/plugins
-  wget https://uav4geo.com/static/downloads/GCPEditorPro-WebODM-Plugin.zip
-  unzip GCPEditorPro-WebODM-Plugin.zip
-  rm GCPEditorPro-WebODM-Plugin.zip
 
   cd /webodm
 
