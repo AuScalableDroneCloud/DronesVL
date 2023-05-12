@@ -8,7 +8,6 @@
 # - Configure external load balancer with reserved floating ip and setup SSL
 ####################################################################################################
 
-
 #TODO:
 # - Better shared storage pool between nodes, nfs or similar
 
@@ -19,6 +18,23 @@ fi
 
 #Load the settings, setup openstack and kubectl
 source settings.env
+
+#If secrets file doesn't exist, attempt to copy from keybase
+if [ ! -f "secrets/secret.env" ]; then
+  #If keybase command available, try and get the key
+  if command -v keybase &> /dev/null; then
+    echo "Attempting to get secret files from keybase team folder..."
+    keybase fs cp /keybase/team/asdc.admin/secret.env ./secrets/
+    keybase fs cp /keybase/team/asdc.admin/kubeconfig ./secrets/
+    keybase fs cp /keybase/team/asdc.admin/kubeconfig-dev ./secrets/
+  fi
+
+  if [ ! -f "secrets/secret.env" ]; then
+    echo "Please download the secret files and store here in: ./secrets/"
+    echo "Install keybase and join the asdc.admin team to get keys automatically"
+    exit
+  fi
+fi
 
 ####################################################################################################
 echo --- Phase 1 : Cluster Launch
@@ -95,15 +111,15 @@ then
   #Finally setup the environment and export kubernetes config
   openstack coe cluster config $CLUSTER
   mv config $KUBECONFIG
-  #Update secrets repo...
-  ./crypt.sh push
-  #Also copy to keybase
+  #Copy secrets to keybase
   if command -v keybase &> /dev/null; then
     BASE_KC="$(basename -- $KUBECONFIG)"
     echo $BASE_KC
     echo "keybase fs cp $KUBECONFIG /keybase/team/asdc.admin/${BASE_KC}"
     keybase fs rm /keybase/team/asdc.admin/${BASE_KC}
     keybase fs cp $KUBECONFIG /keybase/team/asdc.admin/${BASE_KC} -f
+  else
+    echo "WARNING: keybase not found, kubeconfig not shared"
   fi
 
   #Calico - reset pods to try and fix network issues?
