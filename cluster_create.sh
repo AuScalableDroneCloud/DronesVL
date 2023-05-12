@@ -137,6 +137,13 @@ then
   #Apply some labels to the compute pods
   for node in $(kubectl get nodes -l magnum.openstack.org/role=cluster -ojsonpath='{.items[*].metadata.name}'); 
   do 
+    #Wait until cinder-csi deployed, otherwise taint will prevent it loading
+    until kubectl describe node $node | grep "topology.cinder.csi.openstack.org/zone"
+    do
+      printf "Waiting for cinder.csi deployment on $node... "
+      sleep 5
+    done
+
     kubectl label nodes $node asdc.cloud.edu.au/gpu=1 --overwrite
     #https://github.com/NVIDIA/gpu-operator/issues/322
     kubectl label nodes $node nvidia.com/mig.config=all-disabled --overwrite
