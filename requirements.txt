@@ -4,3 +4,4 @@ python-heatclient
 python-magnumclient
 python-manilaclient
 python-keystoneclient
+python-octaviaclient
