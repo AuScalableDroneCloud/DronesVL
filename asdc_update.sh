@@ -37,9 +37,6 @@ kubectl create secret generic jwt-keys-secret \
 #Export all required settings env variables to this ConfigMap
 apply_template flux-configmap.yaml
 
-#Apply the cronjob to check site
-apply_template cronjob.yaml
-
 #####################################################
 echo "Checking database volume size..."
 #####################################################
