@@ -19,23 +19,6 @@ fi
 #Load the settings, setup openstack and kubectl
 source settings.env
 
-#If secrets file doesn't exist, attempt to copy from keybase
-if [ ! -f "secrets/secret.env" ]; then
-  #If keybase command available, try and get the key
-  if command -v keybase &> /dev/null; then
-    echo "Attempting to get secret files from keybase team folder..."
-    keybase fs cp /keybase/team/asdc.admin/secret.env ./secrets/
-    keybase fs cp /keybase/team/asdc.admin/kubeconfig ./secrets/
-    keybase fs cp /keybase/team/asdc.admin/kubeconfig-dev ./secrets/
-  fi
-
-  if [ ! -f "secrets/secret.env" ]; then
-    echo "Please download the secret files and store here in: ./secrets/"
-    echo "Install keybase and join the asdc.admin team to get keys automatically"
-    exit
-  fi
-fi
-
 ####################################################################################################
 echo --- Phase 1 : Cluster Launch
 ####################################################################################################
