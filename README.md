@@ -50,6 +50,10 @@ To launch / configure the cluster, source the main initialisation script:
 
 This will attempt to bring up the cluster from scratch, but if it is already running will check each stage and deploy components or configure them as necessary until everything checks out as up and running.
 
+To update changes to variables in settings.env and secrets/secret.env:
+
+`./asdc_update.sh`
+
 To destroy the cluster:
 
 `./asdc_stop.sh`
