@@ -154,6 +154,10 @@ then
     kubectl label nodes $node hub.jupyter.org/node-purpose=user --overwrite
     #Use PreferNoSchedule so pods other than jupyterhub will still run on these nodes if they tolerate compute=true
     #kubectl taint nodes $node hub.jupyter.org/dedicated=user:PreferNoSchedule
+
+    #csi-cinder daemonset created by OpenStack has no toleration for all taints like other kube-system ds
+    # - fix this by patching the daemonset
+    kubectl patch daemonset csi-cinder-nodeplugin -n kube-system --patch "$(cat templates/ds-tolerations-patch.yml)"
   done
   export NODEGROUP_CREATED=0
 fi
