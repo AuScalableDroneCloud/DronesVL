@@ -49,10 +49,11 @@ then
   ./get_helm.sh
 fi
 
-#Install flux if not found
-if ! command -v flux &> /dev/null
+#Install flux if not found or version doesn't match FLUX_VERSION
+FLUXVER=$(flux --version | cut -d " " -f 3)
+if [ ! command -v flux &> /dev/null ] || [ "${FLUX_VERSION}" != "${FLUXVER}" ];
 then
-  echo "flux could not be found! attempting to download..."
+  echo "flux not found or version doesn't match! attempting to download..."
   curl -s https://fluxcd.io/install.sh -o flux_install.sh
   chmod 700 flux_install.sh
   ./flux_install.sh
