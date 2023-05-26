@@ -1,4 +1,8 @@
 #!/bin/bash
+#Installs ASDC Admin dependencies and tools
+#Tested for Linux (Ubuntu) only
+#Requires curl, python
+source settings.env
 if [ -z ${KUBE_TAG+x} ];
 then
   echo "KUBE_TAG NOT SET!"
@@ -18,15 +22,12 @@ else
   pip install --user -r requirements.txt
 fi
 
-
 if [ "$1" == "force" ];
 then
-  rm kubectl
-  rm helm
-  rm flux
+  rm ./kubectl
 fi
 
-#Install kubectl + helm if not present
+#Install kubectl if not present
 if ! command -v kubectl &> /dev/null
 then
   #Add cwd to path so kubectl can be run without dir
@@ -41,7 +42,7 @@ then
 fi
 
 #Install helm if not found
-if ! command -v helm &> /dev/null
+if [ ! command -v helm &> /dev/null ] || [ "$1" == "force" ];
 then
   echo "helm could not be found! attempting to download..."
   curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
@@ -51,7 +52,7 @@ fi
 
 #Install flux if not found or version doesn't match FLUX_VERSION
 FLUXVER=$(flux --version | cut -d " " -f 3)
-if [ ! command -v flux &> /dev/null ] || [ "${FLUX_VERSION}" != "${FLUXVER}" ];
+if [ ! command -v flux &> /dev/null ] || [ "${FLUX_VERSION}" != "${FLUXVER}" ] || [ "$1" == "force" ];
 then
   echo "flux not found or version doesn't match! attempting to download..."
   curl -s https://fluxcd.io/install.sh -o flux_install.sh
