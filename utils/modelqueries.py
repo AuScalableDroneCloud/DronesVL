@@ -1,3 +1,5 @@
+#Example of using the django models interface to query the WebODM database
+#Needs to be run in the WebODM container
 import os
 from django.core.wsgi import get_wsgi_application
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "webodm.settings")
