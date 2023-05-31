@@ -41,15 +41,6 @@ then
   fi
 fi
 
-#Install helm if not found
-if [ ! command -v helm &> /dev/null ] || [ "$1" == "force" ];
-then
-  echo "helm could not be found! attempting to download..."
-  curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
-  chmod 700 get_helm.sh
-  ./get_helm.sh
-fi
-
 #Install flux if not found or version doesn't match FLUX_VERSION
 FLUXVER=$(flux --version | cut -d " " -f 3)
 if [ ! command -v flux &> /dev/null ] || [ "${FLUX_VERSION}" != "${FLUXVER}" ] || [ "$1" == "force" ];

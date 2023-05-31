@@ -152,9 +152,6 @@ echo --- Phase 3 : Deployment: Flux apps - Prepare configmaps and secrets for fl
 # Bootstrap flux.
 #(Requires github personal access token with repo rights in GITHUB_TOKEN)
 
-#See re: multiple environments
-#https://github.com/fluxcd/flux2-kustomize-helm-example#identical-environments
-
 # Installs flux if it's not already present, using the configured live repo. This is idempotent.
 #(OK: Adding image automation features: https://fluxcd.io/docs/guides/image-update/#configure-image-scanning)
 if ! flux bootstrap ${FLUX_LIVE_REPO_TYPE} \
@@ -169,11 +166,6 @@ then
   echo "ERROR IN FLUX BOOTSTRAP, HALTING"
   return
 fi
-
-#SMTP
-#https://artifacthub.io/packages/helm/docker-postfix/mail
-#helm repo add bokysan https://bokysan.github.io/docker-postfix/
-#helm upgrade --install --set persistence.enabled=false --set config.general.ALLOW_EMPTY_SENDER_DOMAINS=1 mail bokysan/mail
 
 ####################################################################################################
 echo --- Phase 4 : Start the cluster nodes
