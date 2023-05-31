@@ -2,7 +2,7 @@
 #Installs ASDC Admin dependencies and tools
 #Tested for Linux (Ubuntu) only
 #Requires curl, python
-source settings.env
+#Can't source settings.env in this script as is called from settings.env! Must do it manually if running yourself
 if [ -z ${KUBE_TAG+x} ];
 then
   echo "KUBE_TAG NOT SET!"
