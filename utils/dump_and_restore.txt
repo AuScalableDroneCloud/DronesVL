@@ -1,0 +1,20 @@
+# In order to fix autoinc and index missing from prod node tables...
+
+## On dev db container
+
+pg_dump -F c -U postgres -s webodm_dev -t 'nodeodm_*' > schema.sql
+
+kubectl cp --no-preserve=true db-7bc976846d-pqldq:/var/lib/postgresql/schema.sql schema-new.sql
+
+## On prod db container
+
+kubectl cp --no-preserve=true schema-new.sql db-64645b5b56-lmnkx:/var/lib/postgresql/schema-new.sql
+
+(stopped webapp statefulset)
+
+pg_restore -s -c -U postgres -d webodm_dev schema-new.sql
+
+
+There were some errors deleting non-existent indexes etc but all worked
+
+

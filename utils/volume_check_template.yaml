@@ -1,0 +1,61 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: test-volume-${VOLUME_INDEX}
+  namespace: default
+spec:
+  capacity:
+    storage: ${VOLUME_SIZE}Gi
+  accessModes:
+    - ReadWriteOnce
+  csi:
+    driver: cinder.csi.openstack.org
+    fsType: ext4
+    volumeHandle: ${VOLUME_ID}
+  storageClassName: csi-sc-cinderplugin
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: test-pvc-${VOLUME_INDEX}
+  namespace: default
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: ${VOLUME_SIZE}Gi
+  storageClassName: csi-sc-cinderplugin
+  volumeMode: Filesystem
+  volumeName: test-volume-${VOLUME_INDEX}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-${VOLUME_INDEX}
+  namespace: default
+spec:
+  containers:
+  - name: test
+    #image: ubuntu:22.04
+    image: bitnami/git:latest
+    # Just spin & wait forever
+    command: [ "/bin/bash", "-c", "--" ]
+    args: [ "while true; do sleep 30; done;" ]
+    volumeMounts:
+    - name: test-data
+      mountPath: /mnt/data
+    #Also mounts the S3 volume for backing up
+    - name: asdc-store
+      mountPath: /mnt/store
+  restartPolicy: Always
+  volumes:
+  - name: test-data
+    persistentVolumeClaim:
+      claimName: test-pvc-${VOLUME_INDEX}
+  - name: asdc-store
+    persistentVolumeClaim:
+      claimName: asdc-store-pvc
+

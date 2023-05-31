@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: Pod
+#This pod runs data container in priviledged mode to allow volume check
+metadata:
+  creationTimestamp: null
+  labels:
+    run: data-check
+  name: data-check
+spec:
+  restartPolicy: Never
+
+  #Volume to check
+  volumes:
+  - name: check-data
+    persistentVolumeClaim:
+      claimName: check-pvc
+
+  containers:
+  #Test pod
+  - name: data-container
+    #securityContext: { privileged: true }
+    image: ubuntu:18.04 
+    name: data
+    volumeMounts:
+    - mountPath: /mnt/data
+      name: check-data
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: check-volume
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  csi:
+    driver: cinder.csi.openstack.org
+    fsType: ext4
+    volumeHandle: fc47eaf7-9ce6-439a-8f22-696f02aaddc9 #e25919fc-b460-4e62-a31d-248776c468b3
+  storageClassName: csi-sc-cinderplugin
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: check-pvc
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: csi-sc-cinderplugin
+  volumeMode: Filesystem
+  volumeName: check-volume
+
+#kubectl apply -f volume-checker.yaml
+#kubectl delete pod data-check
+#kubectl delete pvc check-pvc
+#kubectl delete pv check-volume
