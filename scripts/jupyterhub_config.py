@@ -254,3 +254,7 @@ async def profile_pvc(spawner):
 
 c.KubeSpawner.pre_spawn_hook = profile_pvc
 
+#Increased timeouts to 10min
+c.KubeSpawner.http_timeout = 600
+c.KubeSpawner.start_timeout = 600
+
