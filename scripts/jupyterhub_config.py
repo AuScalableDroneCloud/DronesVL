@@ -70,6 +70,13 @@ def get_profiles(self):
         'slug' : 'gpu',
         'kubespawner_override': {
           'image': images['gpu'],
+          'extra_container_config': {
+            'resources': {
+              'limits': {
+                'nvidia.com/gpu': 1
+              }
+            }
+          },
           'lifecycle_hooks': {
             'postStart': {
               'exec': {
@@ -84,6 +91,13 @@ def get_profiles(self):
         'slug' : 'ml',
         'kubespawner_override': {
           'image': images['ml'],
+          'extra_container_config': {
+            'resources': {
+              'limits': {
+                'nvidia.com/gpu': 1
+              }
+            }
+          },
           'lifecycle_hooks': {
             'postStart': {
               'exec': {
