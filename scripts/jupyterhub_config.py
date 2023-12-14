@@ -66,7 +66,7 @@ def get_profiles(self):
         }
       }, {
         'display_name': 'GPU + ASDC base environment',
-        'description': 'Python with ASDC base libraries and examples and GPU support.',
+        'description': 'Python with ASDC base libraries and examples and GPU support. (test)',
         'slug' : 'gpu',
         'kubespawner_override': {
           'image': images['gpu'],
@@ -87,7 +87,7 @@ def get_profiles(self):
         }
       }, {
         'display_name': 'ML + GPU + ASDC base environment',
-        'description': 'Python with ASDC base libraries and examples and GPU support, with additional ML libraries.',
+        'description': 'Python with ASDC base libraries and examples and GPU support, with additional ML libraries. (test)',
         'slug' : 'ml',
         'kubespawner_override': {
           'image': images['ml'],
