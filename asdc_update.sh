@@ -1,3 +1,4 @@
+#!/bin/bash
 ####################################################################################################
 # OpenDroneMap on k8s for ASDC DronesVL
 # Owen Kaluza, Monash University, August 2020
@@ -41,8 +42,8 @@ apply_template flux-configmap.yaml
 echo "Checking database volume size..."
 #####################################################
 #Check DB storage volume size has not been increased in settings.env
-DBSIZE=$(openstack volume show db-storage -f value -c size)
-if [ ${DB_VOLUME_SIZE} -gt ${DBSIZE} ]; then 
+DBSIZE=$(openstack volume show db-storage --format value --column size)
+if ((DB_VOLUME_SIZE > DBSIZE)); then 
   echo "RESIZING DB VOLUME, delete pods..."
   kubectl delete deployment db
   echo "sleep 10"
