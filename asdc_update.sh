@@ -62,6 +62,6 @@ fi
 
 #Apply changes
 if [ "$1" != "noflux" ]; then
-  flux reconcile kustomization apps --with-source
+  flux reconcile kustomization apps --with-source --verbose
 fi
 
