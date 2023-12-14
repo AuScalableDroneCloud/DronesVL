@@ -35,6 +35,9 @@ kubectl create secret generic jwt-keys-secret \
     --from-file=public_key=$JWT_KEY.pub \
     --from-file=private_key=$JWT_KEY
 
+#Create required directories
+mkdir yaml 2>/dev/null
+
 #Export all required settings env variables to this ConfigMap
 apply_template flux-configmap.yaml
 
