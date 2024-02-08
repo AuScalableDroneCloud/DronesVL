@@ -45,23 +45,23 @@ apply_template flux-configmap.yaml
 echo "Checking database volume size..."
 #####################################################
 #Check DB storage volume size has not been increased in settings.env
-DBSIZE=$(openstack volume show db-storage --format value --column size)
-if ((DB_VOLUME_SIZE > DBSIZE)); then 
-  echo "RESIZING DB VOLUME, delete pods..."
-  kubectl delete deployment db
-  echo "sleep 10"
-  sleep 10
-  echo "Delete pv/pvc"
-  kubectl delete pvc db-pvc
-  kubectl delete pv db-volume
-  echo "sleep 5"
-  sleep 5
-  echo "Resize now"
-  openstack volume set --size ${DB_VOLUME_SIZE} db-storage
-fi
+# DBSIZE=$(openstack volume show db-storage --format value --column size)
+# if ((DB_VOLUME_SIZE > DBSIZE)); then 
+#   echo "RESIZING DB VOLUME, delete pods..."
+#   kubectl delete deployment db
+#   echo "sleep 10"
+#   sleep 10
+#   echo "Delete pv/pvc"
+#   kubectl delete pvc db-pvc
+#   kubectl delete pv db-volume
+#   echo "sleep 5"
+#   sleep 5
+#   echo "Resize now"
+#   openstack volume set --size ${DB_VOLUME_SIZE} db-storage
+# fi
 
 #Apply changes
 if [ "$1" != "noflux" ]; then
-  flux reconcile kustomization apps --with-source
+  flux reconcile kustomization apps --with-source --verbose
 fi
 
