@@ -1,3 +1,4 @@
+#!/bin/bash
 ####################################################################################################
 # OpenDroneMap on k8s for ASDC DronesVL
 # Owen Kaluza, Monash University, August 2020
