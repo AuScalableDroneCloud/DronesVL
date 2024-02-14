@@ -130,7 +130,7 @@ if [ "$NODES_A100" -gt "0" ]; then
 fi
 
 export NODEGROUP_CREATED=1 #Need to force this if interrupted
-if [ $NODEGROUP_CREATED == "1" ];
+if [[ $NODEGROUP_CREATED == "1" ]];
 then
   #Apply some labels to the compute pods
   for node in $(kubectl get nodes -l magnum.openstack.org/role=cluster -ojsonpath='{.items[*].metadata.name}'); 
